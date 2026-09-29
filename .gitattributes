@@ -6,3 +6,6 @@
 *.docx binary
 *.xlsx binary
 *.zip binary
+*.wav binary
+*.mp3 binary
+*.m4a binary

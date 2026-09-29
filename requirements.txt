@@ -1,3 +1,4 @@
+# torch / torchaudio are installed separately in the Dockerfile (CUDA wheels).
 fastapi==0.115.0
 uvicorn==0.30.6
 pydantic==2.9.2
@@ -5,8 +6,11 @@ pydantic-settings==2.5.2
 python-dotenv==1.0.1
 python-multipart==0.0.12
 pydub==0.25.1
-faster-whisper==1.0.3
-pyannote.audio==3.3.1
-transformers==4.44.2
-numpy
+faster-whisper==1.2.1
+pyannote.audio==4.0.7
+transformers==5.17.0
+numpy==2.4.6
 
+# Tests
+pytest==9.1.1
+httpx==0.28.1

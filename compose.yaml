@@ -1,0 +1,85 @@
+name: bai2-meeting
+
+# Credentials come from .env. The fallbacks below exist only so a fresh local checkout starts;
+# services are not published outside localhost. Set real values in .env for any shared machine.
+x-app: &app
+  image: bai2-meeting:local
+  init: true
+  env_file:
+    - .env
+  environment:
+    DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-meeting}:${POSTGRES_PASSWORD:-meeting_dev_password}@postgres:5432/${POSTGRES_DB:-meeting}
+    S3_ENDPOINT: http://seaweedfs:8333
+    S3_ACCESS_KEY: ${S3_ACCESS_KEY:-meeting_dev_access}
+    S3_SECRET_KEY: ${S3_SECRET_KEY:-meeting_dev_secret_change_me}
+    S3_BUCKET: ${S3_BUCKET:-meetings}
+    HF_HOME: /app/.cache/huggingface
+    # Models run on the NVIDIA GPU; the service below reserves it.
+    DEVICE: cuda
+    COMPUTE_TYPE: int8_float16
+  # Ollama runs on the Windows host, not in a container.
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+  volumes:
+    - model_cache:/app/.cache
+  shm_size: 1gb
+  deploy:
+    resources:
+      reservations:
+        devices:
+          - driver: nvidia
+            count: all
+            capabilities: [gpu]
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-meeting}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-meeting_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-meeting}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./docker/postgres/initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  # S3-compatible object storage for original recordings (MinIO no longer ships public images).
+  seaweedfs:
+    image: chrislusf/seaweedfs:4.48
+    environment:
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-meeting_dev_access}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-meeting_dev_secret_change_me}
+      S3_BUCKET: ${S3_BUCKET:-meetings}
+    entrypoint: ["/bin/sh", "/seaweedfs-start.sh"]
+    volumes:
+      - s3_data:/data
+      - ./docker/seaweedfs/start.sh:/seaweedfs-start.sh:ro
+    healthcheck:
+      test: ["CMD", "wget", "-qO", "/dev/null", "http://127.0.0.1:8333/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+
+  api:
+    <<: *app
+    build: .
+    # 8000 is taken by Bai_1.
+    ports:
+      - "127.0.0.1:8001:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      seaweedfs:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  model_cache:
+  pg_data:
+  s3_data:
