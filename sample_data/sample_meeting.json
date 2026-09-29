@@ -1,0 +1,65 @@
+{
+  "source": "facebook/mms-tts-vie",
+  "turns": [
+    {
+      "speaker": "A",
+      "start": 0.5,
+      "end": 5.7,
+      "text": "xin chào mọi người hôm nay chúng ta họp về kế hoạch ra mắt ứng dụng mới"
+    },
+    {
+      "speaker": "B",
+      "start": 6.3,
+      "end": 11.56,
+      "text": "bên kỹ thuật đã hoàn thành phần đăng nhập và thanh toán"
+    },
+    {
+      "speaker": "B",
+      "start": 12.16,
+      "end": 17.16,
+      "text": "còn chức năng thông báo thì cần thêm hai tuần nữa"
+    },
+    {
+      "speaker": "C",
+      "start": 17.76,
+      "end": 21.65,
+      "text": "bên marketing đề xuất ra mắt vào ngày mười lăm tháng mười một"
+    },
+    {
+      "speaker": "A",
+      "start": 22.25,
+      "end": 27.26,
+      "text": "vậy chúng ta chốt ngày ra mắt là mười lăm tháng mười một"
+    },
+    {
+      "speaker": "A",
+      "start": 27.86,
+      "end": 32.48,
+      "text": "anh bình phụ trách hoàn thành chức năng thông báo trước ngày ba mươi tháng mười"
+    },
+    {
+      "speaker": "B",
+      "start": 33.09,
+      "end": 37.42,
+      "text": "tôi đồng ý nhưng cần thêm một người kiểm thử"
+    },
+    {
+      "speaker": "C",
+      "start": 38.02,
+      "end": 42.59,
+      "text": "tôi sẽ chuẩn bị nội dung quảng cáo và gửi cho mọi người vào thứ sáu tuần này"
+    },
+    {
+      "speaker": "A",
+      "start": 43.19,
+      "end": 48.67,
+      "text": "vấn đề ngân sách quảng cáo chưa thống nhất chúng ta sẽ bàn lại vào tuần sau"
+    },
+    {
+      "speaker": "A",
+      "start": 49.27,
+      "end": 52.74,
+      "text": "cảm ơn mọi người buổi họp kết thúc tại đây"
+    }
+  ]
+}
