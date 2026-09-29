@@ -1,0 +1,41 @@
+# Environment
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.egg
+.eggs/
+
+# Virtual env
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data (keep directory structure via .gitkeep)
+data/uploads/*
+data/temp/*
+!data/uploads/.gitkeep
+!data/temp/.gitkeep
+
+# Model cache
+*.bin
+*.pt
+*.onnx
+
+# Test scratch files
+tests/.tmp/
+.pytest_cache/
