@@ -1,6 +1,10 @@
 """Speaker diarization using pyannote.audio."""
+import wave
 from pathlib import Path
 from typing import Any
+
+import numpy as np
+
 from app.core.config import get_settings
 from app.models.schemas import SpeakerSegment
 
@@ -28,7 +32,7 @@ def get_diarization_pipeline() -> Any:
             # Load pipeline with auth token
             _pipeline = Pipeline.from_pretrained(
                 settings.DIARIZATION_MODEL,
-                use_auth_token=settings.HF_TOKEN
+                token=settings.HF_TOKEN
             )
             if _pipeline is None:
                 raise DiarizationError("Failed to initialize pipeline. Check model name or token permissions.")
@@ -45,6 +49,24 @@ def get_diarization_pipeline() -> Any:
             
     return _pipeline
 
+def _load_waveform(audio_path: Path) -> dict[str, Any]:
+    """Read a 16-bit PCM WAV into the in-memory input pyannote accepts.
+
+    Bypasses pyannote's own decoder (torchcodec), which needs FFmpeg libraries matching its build.
+    """
+    import torch
+
+    with wave.open(str(audio_path), "rb") as wf:
+        if wf.getsampwidth() != 2:
+            raise DiarizationError(f"Expected 16-bit PCM WAV: {audio_path}")
+        channels = wf.getnchannels()
+        sample_rate = wf.getframerate()
+        frames = wf.readframes(wf.getnframes())
+
+    samples = np.frombuffer(frames, dtype=np.int16).astype(np.float32) / 32768.0
+    waveform = torch.from_numpy(samples.reshape(-1, channels).T.copy())
+    return {"waveform": waveform, "sample_rate": sample_rate}
+
 def diarize_audio(audio_path: str | Path) -> list[SpeakerSegment]:
     """Diarizes audio to identify speaker segments.
 
@@ -57,9 +79,14 @@ def diarize_audio(audio_path: str | Path) -> list[SpeakerSegment]:
         
     pipeline = get_diarization_pipeline()
     try:
-        # Run inference
-        diarization = pipeline(str(audio_path))
-        
+        output = pipeline(_load_waveform(audio_path))
+        # pyannote 4 wraps annotations in DiarizeOutput; the exclusive variant has no
+        # overlapping turns, which suits aligning each transcript segment to one speaker.
+        diarization = getattr(
+            output, "exclusive_speaker_diarization",
+            getattr(output, "speaker_diarization", output)
+        )
+
         result = []
         for turn, _, speaker in diarization.itertracks(yield_label=True):
             result.append(SpeakerSegment(

@@ -1,4 +1,6 @@
 """Tests for diarization service."""
+import wave
+
 import pytest
 
 from app.services.diarization import (
@@ -24,8 +26,10 @@ class MockPipeline:
     def __init__(self):
         self.returns = MockDiarizationResult([])
         self.should_raise = False
+        self.received = None
         
     def __call__(self, audio):
+        self.received = audio
         if self.should_raise:
             raise RuntimeError("Mocked pipeline error")
         return self.returns
@@ -39,7 +43,11 @@ def mock_pipeline(monkeypatch):
 @pytest.fixture
 def dummy_audio(tmp_path):
     p = tmp_path / "dummy_diarize.wav"
-    p.touch()
+    with wave.open(str(p), "wb") as wf:
+        wf.setnchannels(1)
+        wf.setsampwidth(2)
+        wf.setframerate(16000)
+        wf.writeframes(b"\x00\x00" * 16000)
     return p
 
 def test_diarize_audio_success(mock_pipeline, dummy_audio):
@@ -80,3 +88,35 @@ def test_diarize_audio_file_not_found():
     with pytest.raises(FileNotFoundError):
         diarize_audio("nonexistent.wav")
 
+
+class MockDiarizeOutput:
+    """Shape of pyannote 4 output: annotations wrapped in attributes."""
+    def __init__(self, regular, exclusive):
+        self.speaker_diarization = regular
+        self.exclusive_speaker_diarization = exclusive
+
+def test_diarize_audio_prefers_exclusive_output(mock_pipeline, dummy_audio):
+    overlapping = MockDiarizationResult([
+        (MockTurn(0.0, 3.0), None, "SPEAKER_00"),
+        (MockTurn(2.0, 4.0), None, "SPEAKER_01"),
+    ])
+    exclusive = MockDiarizationResult([
+        (MockTurn(0.0, 2.0), None, "SPEAKER_00"),
+        (MockTurn(2.0, 4.0), None, "SPEAKER_01"),
+    ])
+    mock_pipeline.returns = MockDiarizeOutput(overlapping, exclusive)
+
+    result = diarize_audio(dummy_audio)
+
+    assert [(s.speaker, s.start, s.end) for s in result] == [
+        ("SPEAKER_00", 0.0, 2.0),
+        ("SPEAKER_01", 2.0, 4.0),
+    ]
+
+def test_diarize_audio_passes_in_memory_waveform(mock_pipeline, dummy_audio):
+    mock_pipeline.returns = MockDiarizationResult([(MockTurn(0.0, 1.0), None, "SPEAKER_00")])
+
+    diarize_audio(dummy_audio)
+
+    assert mock_pipeline.received["sample_rate"] == 16000
+    assert tuple(mock_pipeline.received["waveform"].shape) == (1, 16000)
