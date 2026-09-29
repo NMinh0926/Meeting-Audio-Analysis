@@ -23,7 +23,7 @@ def get_gender_pipeline() -> Any:
             _gender_pipeline = pipeline(
                 "audio-classification", 
                 model=settings.GENDER_MODEL,
-                device=-1  # use CPU or configure based on settings.DEVICE if needed
+                device=settings.DEVICE
             )
         except Exception as e:
             logger.error(f"Failed to load gender model: {e}")

@@ -28,23 +28,23 @@ def analyze_meeting(audio_path: str | Path) -> MeetingAnalysisResult:
     transcripts = transcribe_audio(normalized_path)
     
     # 3. Diarization
-    logger.info("Stage 2: Diarization")
+    logger.info("Stage 3: Diarization")
     speakers = diarize_audio(normalized_path)
     
     # 4. Alignment
-    logger.info("Stage 2: Alignment")
+    logger.info("Stage 4: Alignment")
     aligned_turns = align_segments(transcripts, speakers)
     
     # 5. Merge
-    logger.info("Stage 2: Merging")
+    logger.info("Stage 5: Merging")
     merged_turns = merge_consecutive_turns(aligned_turns)
     
     # 6. Gender prediction per speaker
-    logger.info("Stage 3: Gender Classification")
+    logger.info("Stage 6: Gender Classification")
     gender_map = predict_speakers_gender(normalized_path, speakers)
     
     # 7. Sentiment prediction per turn & assemble final
-    logger.info("Stage 3: Sentiment Classification & Assembly")
+    logger.info("Stage 7: Sentiment Classification & Assembly")
     
     final_segments = []
     unique_speakers = set()

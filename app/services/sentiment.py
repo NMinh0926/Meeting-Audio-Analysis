@@ -19,7 +19,7 @@ def get_sentiment_pipeline() -> Any:
             _sentiment_pipeline = pipeline(
                 "text-classification",
                 model=settings.SENTIMENT_MODEL,
-                device=-1
+                device=settings.DEVICE
             )
         except Exception as e:
             logger.error(f"Failed to load sentiment model: {e}")
