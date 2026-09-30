@@ -14,7 +14,8 @@ x-app: &app
     S3_SECRET_KEY: ${S3_SECRET_KEY:-meeting_dev_secret_change_me}
     S3_BUCKET: ${S3_BUCKET:-meetings}
     HF_HOME: /app/.cache/huggingface
-    # Models run on the NVIDIA GPU; the service below reserves it.
+    # Models run on the NVIDIA GPU (worker, and pipeline scripts run via `compose run api`).
+    # The api server itself never loads a model, so it holds no GPU memory.
     DEVICE: cuda
     COMPUTE_TYPE: int8_float16
   # Ollama runs on the Windows host, not in a container.
@@ -66,6 +67,17 @@ services:
       retries: 30
     restart: unless-stopped
 
+  # One-shot: apply database migrations before the api and worker start.
+  init:
+    <<: *app
+    command: ["alembic", "upgrade", "head"]
+    healthcheck:
+      disable: true
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
   api:
     <<: *app
     build: .
@@ -73,8 +85,21 @@ services:
     ports:
       - "127.0.0.1:8001:8000"
     depends_on:
-      postgres:
+      init:
+        condition: service_completed_successfully
+      seaweedfs:
         condition: service_healthy
+    restart: unless-stopped
+
+  # Runs queued meetings through the models, one at a time. No HTTP port, so no healthcheck.
+  worker:
+    <<: *app
+    command: ["python", "-m", "app.worker"]
+    healthcheck:
+      disable: true
+    depends_on:
+      init:
+        condition: service_completed_successfully
       seaweedfs:
         condition: service_healthy
     restart: unless-stopped
