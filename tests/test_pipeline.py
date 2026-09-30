@@ -88,3 +88,45 @@ def test_analyze_meeting_gender_fail(mock_all_services, monkeypatch, tmp_path):
     assert res.segments[1].gender == "unknown"
     assert res.segments[0].text == "Xin chào." # still preserves transcript
 
+
+
+def test_analyze_meeting_reports_stages_in_order(mock_all_services, tmp_path):
+    dummy = tmp_path / "dummy.wav"
+    dummy.touch()
+    stages = []
+
+    analyze_meeting(dummy, on_stage=stages.append)
+
+    assert stages == ["preprocessing", "transcription", "diarization", "alignment",
+                      "merging", "gender", "sentiment"]
+
+
+def _normalized_file(monkeypatch, tmp_path) -> Path:
+    normalized = tmp_path / "normalized.wav"
+    normalized.write_bytes(b"wav")
+    monkeypatch.setattr("app.services.pipeline.preprocess_audio", lambda path: PreprocessingResult(
+        original=AudioMetadata(filename="dummy.wav", duration_seconds=10.0, sample_rate=44100, channels=2),
+        normalized=AudioMetadata(filename="normalized.wav", duration_seconds=10.0, sample_rate=16000, channels=1),
+        normalized_path=str(normalized),
+    ))
+    return normalized
+
+
+def test_analyze_meeting_removes_normalized_audio(mock_all_services, monkeypatch, tmp_path):
+    normalized = _normalized_file(monkeypatch, tmp_path)
+
+    analyze_meeting(tmp_path / "dummy.wav")
+
+    assert not normalized.exists()
+
+
+def test_analyze_meeting_removes_normalized_audio_on_failure(mock_all_services, monkeypatch, tmp_path):
+    normalized = _normalized_file(monkeypatch, tmp_path)
+
+    def fail(path):
+        raise RuntimeError("diarization failed")
+    monkeypatch.setattr("app.services.pipeline.diarize_audio", fail)
+
+    with pytest.raises(RuntimeError):
+        analyze_meeting(tmp_path / "dummy.wav")
+    assert not normalized.exists()
