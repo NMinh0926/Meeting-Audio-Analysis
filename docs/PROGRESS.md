@@ -117,3 +117,45 @@
 ### Việc còn dở
 - Gửi JSON có dấu tiếng Việt bằng `curl -d` trong Git Bash bị hỏng mã hoá (lỗi phía shell, API đúng) —
   dùng `--data-binary @file.json` khi thử tay.
+
+## Đổi kế hoạch (2026-09-30)
+Bỏ tóm tắt bằng LLM (và Ollama); xuất PDF tạm hoãn. Giai đoạn 3 mới: trích xuất dữ liệu + nhận diện nam/nữ;
+Giai đoạn 4: giao diện web; Giai đoạn 5: tăng tốc. Xem `docs/PLAN.md`. CLAUDE.md vẫn còn dòng LLM/PDF —
+chờ bạn đồng ý mới sửa.
+
+## Giai đoạn 3 — Trích xuất dữ liệu và nhận diện nam/nữ (2026-10-01) — xong
+
+### Đã làm
+- Giới tính trong mọi đầu ra: TXT (`Chị Lan (Nữ, 98%)`, mỗi lượt `Tên (Nữ): …`), SRT, thêm `format=json`.
+- Chép lời: `base` → **`large-v3-turbo`** + VAD. WER trên 120 clip FLEURS: 25.9 % → **5.9 %**
+  (`docs/benchmarks/2026-09-30-asr-models.md`; PhoWhisper small/medium kém hơn: 12.7 % / 9.5 %).
+- Gán người nói **theo từng từ** (`word_timestamps`), tách câu khi đổi người nói, làm mượt từ lẻ ≤ 0.5 s.
+  Câu "lẫn" 2 người trong 6 cuộc họp ghép: 9/32 → **0/24**; gán đúng 94.1 % → **100 %**.
+- Giới tính: model cũ (wav2vec2 LibriSpeech) nhận sai 34/60 giọng nam Việt thành nữ → thay bằng
+  **ECAPA-TDNN** (JaesungHuh, MIT, chép mã vào `app/services/ecapa_gender.py`) với ngưỡng p(nam) ≥ 0.2,
+  độ tin cậy < 0.55 → "Không rõ". Tập chỉnh ngưỡng 120/120, **tập held-out 119/120 (1 không rõ, 0 sai)**,
+  cuộc họp ghép 22/24 (2 không rõ, 0 sai). Mỗi người nói chấm tối đa 60 s theo khúc ≤ 10 s:
+  bước giới tính 5.6–54.9 s → 0.3–1.7 s (`docs/benchmarks/2026-10-01-speakers-gender.md`).
+- Tập 45 phút: 37 phút 42 s → 5 phút 31 s (turbo + giới tính theo khúc; một phần do GPU không bị đầy
+  sau khi worker khởi động lại — đo kỹ ở Giai đoạn 5).
+- Script đánh giá: `scripts/bench_asr.py` (WER), `scripts/eval_gender.py` (fetch/clips/meetings, held-out),
+  `scripts/bench_gender.py`. Dữ liệu FLEURS và cuộc họp ghép trong `sample_data/real/` (không commit).
+- Test: 178 test qua.
+
+### Việc còn dở
+- Tách người nói hay gộp 2 giọng ngắn (~10 s) thành 1 (cuộc họp ghép: tìm ra 2–4 người thay vì 4).
+- Còn lỗi chép lời hội thoại: "hồ sơ" → "bộ sơ", "trường tư" → "trường 4", tên riêng ("DELF" → "Danf").
+- Cảm xúc chưa đánh giá (vẫn hay gắn "angry").
+
+## Giai đoạn 4 — Giao diện web (2026-09-30) — xong
+
+### Đã làm
+- `frontend/` React 19 + Vite 7 + TypeScript + Tailwind 4 (cùng bộ với Bài 1, không thêm thư viện router).
+  Service `frontend` (nginx, chuyển `/api` sang `api`) ở **http://127.0.0.1:8081**.
+- Danh sách: kéo thả upload nhiều file (thanh tiến độ), trạng thái + bước đang chạy tự cập nhật, chạy lại, xoá.
+- Chi tiết: trình phát audio cố định trên cùng; người nói với nhãn Nam/Nữ + độ tin cậy, bấm tên để đổi;
+  bản ghi theo lượt → câu: **bấm câu thì audio tua tới đầu câu và phát**, câu đang phát tô vàng, tự cuộn;
+  tải TXT/SRT/JSON.
+- Test: vitest 30 test (định dạng, tìm câu đang phát, route, lỗi API); typecheck + test chạy trong build Docker.
+- Kiểm tra bằng Chromium headless (Playwright trong container): bấm câu #45 (165.8 s) → audio 167.1 s sau
+  1.5 s phát, câu được tô sáng, không lỗi console.
