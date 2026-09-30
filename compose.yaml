@@ -104,6 +104,16 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  # Built React app served by nginx; /api is proxied to the api service (same origin). 8080 is Bai_1.
+  frontend:
+    build: ./frontend
+    image: bai2-meeting-frontend:local
+    ports:
+      - "127.0.0.1:8081:80"
+    depends_on:
+      - api
+    restart: unless-stopped
+
 volumes:
   model_cache:
   pg_data:

@@ -40,3 +40,7 @@ tests/.tmp/
 
 # Downloaded real recordings (large; third-party licenses, e.g. CC BY-NC-ND from archive.org)
 sample_data/real/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
