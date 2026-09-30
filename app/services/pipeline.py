@@ -86,7 +86,8 @@ def analyze_meeting(audio_path: str | Path, on_stage: StageCallback | None = Non
             sentiment_confidence=sentiment_result.confidence,
             start=turn.start,
             end=turn.end,
-            text=turn.text
+            text=turn.text,
+            utterances=turn.utterances
         ))
 
     logger.info("Analysis complete.")

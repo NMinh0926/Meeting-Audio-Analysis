@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 
 from app.api.meetings import get_storage
-from app.db.models import Meeting, MeetingStatus, Segment, Speaker
+from app.db.models import Meeting, MeetingStatus, Segment, Speaker, Utterance
 from app.db.session import get_db
 from app.main import app
 from tests.fakes import InMemoryStorage
@@ -168,7 +168,7 @@ def test_delete_removes_rows_and_recording(client, storage, db_session):
     speaker = Speaker(label="SPEAKER_00", display_name="SPEAKER_00", gender="male", gender_confidence=0.8)
     meeting.speakers.append(speaker)
     meeting.segments.append(Segment(speaker=speaker, start=0, end=1, text="a", sentiment="neutral",
-                                    sentiment_confidence=0.5))
+                                    sentiment_confidence=0.5, utterances=[Utterance(start=0, end=1, text="a")]))
     db_session.commit()
 
     assert client.delete(f"/api/v1/meetings/{meeting_id}").status_code == 204
@@ -177,6 +177,7 @@ def test_delete_removes_rows_and_recording(client, storage, db_session):
     assert db_session.get(Meeting, uuid.UUID(meeting_id)) is None
     assert db_session.scalar(select(func.count()).select_from(Segment)) == 0
     assert db_session.scalar(select(func.count()).select_from(Speaker)) == 0
+    assert db_session.scalar(select(func.count()).select_from(Utterance)) == 0
     assert storage.objects == {}
 
 

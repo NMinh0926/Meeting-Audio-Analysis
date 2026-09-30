@@ -42,6 +42,8 @@ class SpeakerTurn(BaseModel):
     start: float
     end: float
     text: str
+    # Transcript segments (sentences) that make up a merged turn.
+    utterances: list[TranscriptSegment] = []
 
 
 class GenderResult(BaseModel):
@@ -63,6 +65,7 @@ class FinalTurn(BaseModel):
     start: float
     end: float
     text: str
+    utterances: list[TranscriptSegment] = []
 
 
 class MeetingAnalysisResult(BaseModel):

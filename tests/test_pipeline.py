@@ -74,6 +74,8 @@ def test_analyze_meeting_full(mock_all_services, tmp_path):
     assert seg1.gender == "female"
     assert seg1.sentiment == "neutral"
     assert seg1.text == "Chào bạn."
+    assert [(u.start, u.end, u.text) for u in seg0.utterances] == [(0.5, 2.5, "Xin chào.")]
+    assert [(u.start, u.end, u.text) for u in seg1.utterances] == [(3.0, 4.5, "Chào bạn.")]
 
 def test_analyze_meeting_gender_fail(mock_all_services, monkeypatch, tmp_path):
     def mock_gender_empty(path, speakers):

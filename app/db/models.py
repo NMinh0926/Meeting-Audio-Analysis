@@ -88,3 +88,20 @@ class Segment(Base):
 
     meeting: Mapped[Meeting] = relationship(back_populates="segments")
     speaker: Mapped[Speaker] = relationship()
+    utterances: Mapped[list["Utterance"]] = relationship(
+        back_populates="segment", cascade="all, delete-orphan", passive_deletes=True, order_by="Utterance.start"
+    )
+
+
+class Utterance(Base):
+    """One transcript sentence (a Whisper segment) inside a merged turn: the unit for subtitles and seeking."""
+
+    __tablename__ = "utterances"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    segment_id: Mapped[int] = mapped_column(ForeignKey("segments.id", ondelete="CASCADE"), index=True)
+    start: Mapped[float] = mapped_column(Float)
+    end: Mapped[float] = mapped_column(Float)
+    text: Mapped[str] = mapped_column(Text)
+
+    segment: Mapped[Segment] = relationship(back_populates="utterances")

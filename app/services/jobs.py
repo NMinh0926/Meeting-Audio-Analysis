@@ -8,7 +8,7 @@ from pathlib import Path
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.db.models import Meeting, MeetingStatus, Segment, Speaker
+from app.db.models import Meeting, MeetingStatus, Segment, Speaker, Utterance
 from app.models.schemas import MeetingAnalysisResult
 from app.services.pipeline import StageCallback
 from app.storage.base import Storage
@@ -82,6 +82,7 @@ def _save_result(session: Session, meeting: Meeting, result: MeetingAnalysisResu
             text=turn.text,
             sentiment=turn.sentiment,
             sentiment_confidence=turn.sentiment_confidence,
+            utterances=[Utterance(start=u.start, end=u.end, text=u.text) for u in turn.utterances],
         )
         for turn in result.segments
     )

@@ -85,3 +85,25 @@ def test_default_gap_from_settings(monkeypatch):
     ]
 
     assert len(merge_consecutive_turns(turns)) == 2
+
+
+def test_merged_turn_keeps_each_part_as_utterance():
+    turns = [
+        _turn("SPEAKER_00", 0.0, 2.0, "Xin chào"),
+        _turn("SPEAKER_00", 2.5, 4.0, "mọi người."),
+        _turn("SPEAKER_01", 4.2, 5.0, "Chào anh."),
+    ]
+
+    result = merge_consecutive_turns(turns, merge_gap_seconds=1.0)
+
+    assert [(u.start, u.end, u.text) for u in result[0].utterances] == [
+        (0.0, 2.0, "Xin chào"), (2.5, 4.0, "mọi người.")]
+    assert [(u.start, u.end, u.text) for u in result[1].utterances] == [(4.2, 5.0, "Chào anh.")]
+
+
+def test_merge_does_not_share_utterance_lists_with_input():
+    turns = [_turn("SPEAKER_00", 0.0, 1.0, "Một"), _turn("SPEAKER_00", 1.5, 2.0, "Hai")]
+
+    merge_consecutive_turns(turns, merge_gap_seconds=1.0)
+
+    assert all(t.utterances == [] for t in turns)

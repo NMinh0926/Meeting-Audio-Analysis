@@ -5,7 +5,7 @@ from pathlib import Path
 from sqlalchemy import select
 
 from app.db.models import Meeting, MeetingStatus
-from app.models.schemas import FinalTurn, MeetingAnalysisResult
+from app.models.schemas import FinalTurn, MeetingAnalysisResult, TranscriptSegment
 from app.services import meetings as meeting_service
 from app.services.jobs import claim_next, process_next, requeue_interrupted
 
@@ -13,8 +13,12 @@ MAX_BYTES = 10 * 1024 * 1024
 
 
 def _turn(speaker: str, start: float, text: str, gender: str = "male") -> FinalTurn:
+    """A turn made of two utterances: its first word, then the rest."""
+    first, _, rest = text.partition(" ")
     return FinalTurn(speaker=speaker, gender=gender, gender_confidence=0.9, sentiment="neutral",
-                     sentiment_confidence=0.6, start=start, end=start + 1.0, text=text)
+                     sentiment_confidence=0.6, start=start, end=start + 1.0, text=text,
+                     utterances=[TranscriptSegment(start=start, end=start + 0.4, text=first),
+                                 TranscriptSegment(start=start + 0.5, end=start + 1.0, text=rest)])
 
 
 class FakeAnalyzer:
@@ -47,7 +51,7 @@ def _reload(sessions, meeting_id) -> Meeting:
     with sessions() as session:
         meeting = session.get(Meeting, meeting_id)
         # Load relationships before the session closes.
-        _ = meeting.speakers, [segment.speaker for segment in meeting.segments]
+        _ = meeting.speakers, [(segment.speaker, segment.utterances) for segment in meeting.segments]
         return meeting
 
 
@@ -107,6 +111,8 @@ def test_five_uploads_all_finish(sessions, storage, tmp_path):
         assert [(s.label, s.gender) for s in done.speakers] == [("SPEAKER_00", "male"), ("SPEAKER_01", "female")]
         assert [(s.speaker.label, s.text) for s in done.segments] == [
             ("SPEAKER_01", "Chào mọi người"), ("SPEAKER_00", "Bắt đầu họp"), ("SPEAKER_01", "Đồng ý")]
+        assert [[(u.start, u.text) for u in s.utterances] for s in done.segments] == [
+            [(0.0, "Chào"), (0.5, "mọi người")], [(2.0, "Bắt"), (2.5, "đầu họp")], [(4.0, "Đồng"), (4.5, "ý")]]
     # Work files are removed after each job.
     assert list(tmp_path.iterdir()) == []
 
