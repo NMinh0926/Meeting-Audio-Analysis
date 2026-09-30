@@ -3,17 +3,18 @@ import uuid
 from functools import lru_cache
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, FastAPI, Query, Request, UploadFile, status
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Depends, File, FastAPI, Header, Query, Request, UploadFile, status
+from fastapi.responses import JSONResponse, Response, StreamingResponse
 from sqlalchemy.orm import Session
 
+from app.api.byte_range import RangeNotSatisfiableError, parse_range
 from app.core.config import get_settings
 from app.db.models import MeetingStatus
 from app.db.session import get_db
 from app.models.schemas import MeetingDetail, MeetingList, MeetingOut, SpeakerOut, SpeakerRename, TranscriptOut
 from app.services import meetings as service
 from app.storage.base import Storage
-from app.storage.s3 import S3Storage, StorageError
+from app.storage.s3 import ObjectNotFoundError, S3Storage, StorageError
 
 router = APIRouter(prefix="/api/v1/meetings", tags=["meetings"])
 
@@ -72,6 +73,33 @@ def get_transcript(db: DbSession, meeting_id: uuid.UUID):
                          speakers=meeting.speakers, turns=meeting.segments)
 
 
+@router.get("/{meeting_id}/audio", response_class=StreamingResponse,
+            responses={206: {"description": "Partial content"}, 416: {"description": "Range not satisfiable"}})
+def get_audio(
+    db: DbSession, storage: StorageDep, meeting_id: uuid.UUID,
+    range_header: Annotated[str | None, Header(alias="Range")] = None,
+) -> Response:
+    """The original recording. Supports `Range: bytes=…` so players can seek without downloading it all."""
+    meeting = service.get_meeting(db, meeting_id)
+    size = meeting.size_bytes
+    try:
+        byte_range = parse_range(range_header, size)
+    except RangeNotSatisfiableError:
+        return Response(status_code=status.HTTP_416_RANGE_NOT_SATISFIABLE,
+                        headers={"Content-Range": f"bytes */{size}", "Accept-Ranges": "bytes"})
+
+    start, end = byte_range or (0, size - 1)
+    headers = {"Accept-Ranges": "bytes", "Content-Length": str(end - start + 1)}
+    if byte_range is not None:
+        headers["Content-Range"] = f"bytes {start}-{end}/{size}"
+    return StreamingResponse(
+        storage.stream(meeting.storage_key, start, end),
+        status_code=status.HTTP_206_PARTIAL_CONTENT if byte_range else status.HTTP_200_OK,
+        media_type=meeting.content_type,
+        headers=headers,
+    )
+
+
 @router.patch("/{meeting_id}/speakers/{speaker_id}", response_model=SpeakerOut)
 def rename_speaker(db: DbSession, meeting_id: uuid.UUID, speaker_id: int, body: SpeakerRename):
     """Change the name shown for a speaker in the transcript and exports."""
@@ -94,6 +122,7 @@ _ERROR_STATUS: dict[type[Exception], int] = {
     service.InvalidUploadError: status.HTTP_400_BAD_REQUEST,
     service.MeetingNotFoundError: status.HTTP_404_NOT_FOUND,
     service.MeetingStateError: status.HTTP_409_CONFLICT,
+    ObjectNotFoundError: status.HTTP_404_NOT_FOUND,
     StorageError: status.HTTP_503_SERVICE_UNAVAILABLE,
 }
 
