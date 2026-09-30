@@ -46,8 +46,10 @@ def transcribe_audio(audio_path: str | Path) -> list[TranscriptSegment]:
         segments, info = model.transcribe(
             str(audio_path),
             language=settings.WHISPER_LANGUAGE,
-            vad_filter=settings.WHISPER_VAD,
             word_timestamps=True,
+            hallucination_silence_threshold=settings.WHISPER_HALLUCINATION_SILENCE_SECONDS,
+            # Each segment decoded on its own: a bad segment cannot drag the next ones along.
+            condition_on_previous_text=False,
         )
         
         result = []

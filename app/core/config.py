@@ -34,8 +34,9 @@ class Settings(BaseSettings):
     # large-v3-turbo: 5.9 % WER on Vietnamese vs 25.9 % for base (docs/benchmarks/2026-09-30-asr-models.md)
     WHISPER_MODEL: str = "large-v3-turbo"
     WHISPER_LANGUAGE: str = "vi"
-    # Skip silence before decoding: fewer hallucinated sentences on pauses
-    WHISPER_VAD: bool = True
+    # Drop segments Whisper invents over silences longer than this (e.g. "Hãy subscribe cho kênh …").
+    # Used instead of the VAD filter, which dropped whole sentences (docs/benchmarks/2026-10-01-decoding.md).
+    WHISPER_HALLUCINATION_SILENCE_SECONDS: float = 2.0
     COMPUTE_TYPE: str = "int8"
 
     # Diarization

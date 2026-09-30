@@ -95,17 +95,20 @@ def test_transcribe_file_not_found():
         transcribe_audio("nonexistent.wav")
 
 
-def test_transcribe_requests_vad_and_word_timestamps(mock_model, dummy_audio, monkeypatch):
+def test_transcribe_decoding_options(mock_model, dummy_audio, monkeypatch):
     from app.core.config import get_settings
 
-    monkeypatch.setattr(get_settings(), "WHISPER_VAD", True)
+    monkeypatch.setattr(get_settings(), "WHISPER_HALLUCINATION_SILENCE_SECONDS", 1.5)
     mock_model.segments = [_seg(0.0, 1.0, "A")]
 
     transcribe_audio(dummy_audio)
 
     _, kwargs = mock_model.calls[0]
-    assert kwargs["vad_filter"] is True
     assert kwargs["word_timestamps"] is True
+    assert kwargs["hallucination_silence_threshold"] == 1.5
+    assert kwargs["condition_on_previous_text"] is False
+    # The VAD filter dropped whole sentences between speakers; it must stay off (faster-whisper default).
+    assert "vad_filter" not in kwargs
 
 
 def test_transcribe_keeps_word_timings(mock_model, dummy_audio):
