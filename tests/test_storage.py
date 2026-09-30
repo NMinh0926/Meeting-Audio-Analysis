@@ -71,3 +71,21 @@ def test_from_settings_builds_path_style_client():
     assert storage.bucket == "bucket"
     assert storage.client.meta.endpoint_url == "http://s3:8333"
     assert storage.client.meta.config.s3 == {"addressing_style": "path"}
+
+
+def test_stream_requests_inclusive_byte_range_and_closes_body(s3, client):
+    body = MagicMock()
+    body.iter_chunks.return_value = iter([b"abc", b"de"])
+    client.get_object.return_value = {"Body": body}
+
+    chunks = list(s3.stream("meetings/1/original.mp3", 10, 14))
+
+    client.get_object.assert_called_once_with(Bucket="meetings", Key="meetings/1/original.mp3", Range="bytes=10-14")
+    assert chunks == [b"abc", b"de"]
+    body.close.assert_called_once()
+
+
+def test_stream_error_is_raised_before_iterating(s3, client):
+    client.get_object.side_effect = _client_error("NoSuchKey")
+    with pytest.raises(ObjectNotFoundError):
+        s3.stream("missing", 0, 9)

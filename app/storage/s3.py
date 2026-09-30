@@ -1,5 +1,6 @@
 """S3-compatible storage for original recordings (SeaweedFS in compose; AWS S3 or R2 by configuration only)."""
 import logging
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any, BinaryIO
 
@@ -58,6 +59,21 @@ class S3Storage:
             self.client.download_file(self.bucket, key, str(destination))
         except (BotoCoreError, ClientError) as exc:
             raise self._fail("download", key, exc) from exc
+
+    def stream(self, key: str, start: int, end: int, chunk_size: int = 1024 * 1024) -> Iterator[bytes]:
+        """Bytes start..end (inclusive). The request is made here, so errors surface before streaming starts."""
+        try:
+            response = self.client.get_object(Bucket=self.bucket, Key=key, Range=f"bytes={start}-{end}")
+        except (BotoCoreError, ClientError) as exc:
+            raise self._fail("stream", key, exc) from exc
+        return self._iter_body(response["Body"], chunk_size)
+
+    @staticmethod
+    def _iter_body(body: Any, chunk_size: int) -> Iterator[bytes]:
+        try:
+            yield from body.iter_chunks(chunk_size)
+        finally:
+            body.close()
 
     def delete(self, key: str) -> None:
         # S3 delete is idempotent: a missing key is not an error.

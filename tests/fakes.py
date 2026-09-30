@@ -1,4 +1,5 @@
 """Test doubles for infrastructure services."""
+from collections.abc import Iterator
 from pathlib import Path
 from typing import BinaryIO
 
@@ -24,6 +25,11 @@ class InMemoryStorage:
         if key not in self.objects:
             raise ObjectNotFoundError(f"Object not found: {key}")
         destination.write_bytes(self.objects[key][0])
+
+    def stream(self, key: str, start: int, end: int) -> Iterator[bytes]:
+        if key not in self.objects:
+            raise ObjectNotFoundError(f"Object not found: {key}")
+        return iter([self.objects[key][0][start:end + 1]])
 
     def delete(self, key: str) -> None:
         self.objects.pop(key, None)
