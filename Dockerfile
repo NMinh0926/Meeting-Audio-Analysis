@@ -20,7 +20,8 @@ ENV LD_LIBRARY_PATH=/usr/local/lib/python3.11/site-packages/nvidia/cublas/lib:/u
 COPY requirements.lock.txt ./
 RUN pip install -r requirements.lock.txt
 
-COPY pytest.ini ./
+COPY pytest.ini alembic.ini ./
+COPY migrations ./migrations
 COPY app ./app
 COPY scripts ./scripts
 COPY tests ./tests
