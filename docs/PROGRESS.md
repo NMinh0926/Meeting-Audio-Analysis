@@ -1,6 +1,6 @@
 # Tiến độ Bài 2
 
-## Giai đoạn 0 — Nền móng và Docker (2026-09-29) — gần xong, còn chờ quyền model pyannote
+## Giai đoạn 0 — Nền móng và Docker (2026-09-29) — xong (2026-09-30)
 
 ### Đã làm
 - Repo git riêng cho `Bai_2` (trước đó nằm lẫn trong repo `Documents`, chưa được theo dõi).
@@ -33,12 +33,12 @@
 | Giới tính (3 người) | 0.9 s | |
 | Bộ nhớ GPU đỉnh | ~525 MB | Whisper + sentiment |
 
+### Đóng giai đoạn (2026-09-30)
+- `HF_TOKEN` mới có quyền cả `speaker-diarization-3.1`, `segmentation-3.0` và `speaker-diarization-community-1`
+  (pyannote 4.0.7 luôn tải PLDA từ `community-1` khi dựng pipeline, kể cả với 3.1).
+- `scripts.run_pipeline` chạy hết 7 bước trên đoạn podcast 5 phút trong container GPU: 2 người nói, 19 lượt.
+
 ### Việc còn dở
-- `HF_TOKEN` đã có (tài khoản `NMinh0926`), vào được `speaker-diarization-3.1` và `segmentation-3.0`.
-  **Còn thiếu quyền `pyannote/speaker-diarization-community-1`**: pyannote 4.0.7 luôn tải PLDA từ repo này
-  khi dựng pipeline (kể cả với 3.1). Điều khoản đã chấp nhận bằng tài khoản Gmail → cần thay `HF_TOKEN`
-  bằng token của tài khoản đó (token cũ cũng cần thu hồi vì từng bị ghi thẳng trong một script), rồi chạy
-  `scripts.run_pipeline` hết một file để đóng Giai đoạn 0.
 - Whisper `base` sai nhiều trên file mẫu ("họp" → "học", "mắt" → "mắc") → chọn cỡ model ở Giai đoạn 6
   (với GPU 4 GB có thể dùng `small`/`medium` int8_float16).
 - Sentiment: câu chào bình thường bị gắn "angry" với độ tin cậy 0.40 → nhãn negative→angry
@@ -47,7 +47,7 @@
   `sample_data/real/` (không commit, không đưa vào image). Vẫn cần file họp nhiều người cho Giai đoạn 3.
 - `torchaudio` chưa ghim phiên bản trong Dockerfile (đang ra 2.11.0) — ghim khi đổi layer torch lần sau.
 
-## Giai đoạn 1 — API, hàng đợi job, lưu trữ (2026-09-30) — xong phần code, chờ quyền pyannote để chạy thật hết pipeline
+## Giai đoạn 1 — API, hàng đợi job, lưu trữ (2026-09-30) — xong
 
 ### Đã làm
 - Thêm dependency `psycopg[binary]` 3.3.6, `boto3` 1.43.105; ghim `SQLAlchemy` 2.1.1, `alembic` 1.20.0.
@@ -77,7 +77,13 @@
 - Upload 5 file trong một request → worker chạy lần lượt đúng thứ tự; cả 5 dừng ở bước diarization với
   `DiarizationError` (403 `community-1`, đúng như dự đoán). Retry → `attempts` = 2; xoá khi đang chạy → 409.
 - Whisper chỉ nạp ở job đầu: job sau chạy bước chuyển giọng nói trong ~2.4 s cho file 53 s.
+- **Tiêu chí đóng giai đoạn** (sau khi có token mới): 5 file gửi trong một request (53 s, 2 đoạn 5 phút,
+  tập 32 phút, tập 45 phút) → cả 5 `done`, không lỗi. Tổng 87.5 phút audio xử lý trong 75.5 phút
+  (0.86 × độ dài audio). Chi tiết từng bước: `docs/benchmarks/2026-09-30-baseline-gpu.md`.
 
 ### Việc còn dở
-- Tiêu chí "5 file chạy xong" với model thật: chờ token mới có quyền `community-1`.
+- Bước tách người nói chiếm 58–82 % thời gian mỗi job; GPU 4 GB đầy (đỉnh 3932 MB) khi cả 4 model nằm trên
+  GPU → cùng một bước chạy nhanh chậm thất thường. Xử lý ở Giai đoạn 6.
+- Số người nói chưa chuẩn: file mẫu TTS 3 giọng → 5 người; tập 4 (2 người) → 3 người. Kiểm tra lại khi có
+  trang xem bản ghi (Giai đoạn 2) và khi chỉnh diarization (Giai đoạn 6).
 - `UPLOAD_DIR` (config, `main.py`) không còn được dùng vì file gốc lưu trên S3 — xoá khi dọn config.
