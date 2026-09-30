@@ -1,7 +1,10 @@
 """Meeting endpoints: upload recordings, follow their jobs, review transcripts, retry and delete."""
+import unicodedata
 import uuid
+from pathlib import Path
 from functools import lru_cache
 from typing import Annotated
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, File, FastAPI, Header, Query, Request, UploadFile, status
 from fastapi.responses import JSONResponse, Response, StreamingResponse
@@ -13,6 +16,7 @@ from app.db.models import MeetingStatus
 from app.db.session import get_db
 from app.models.schemas import MeetingDetail, MeetingList, MeetingOut, SpeakerOut, SpeakerRename, TranscriptOut
 from app.services import meetings as service
+from app.services.export import ExportFormat, export_transcript
 from app.storage.base import Storage
 from app.storage.s3 import ObjectNotFoundError, S3Storage, StorageError
 
@@ -98,6 +102,25 @@ def get_audio(
         media_type=meeting.content_type,
         headers=headers,
     )
+
+
+def _content_disposition(filename: str) -> str:
+    """Attachment header with an ASCII fallback and the UTF-8 name (RFC 6266 / 5987) for Vietnamese titles."""
+    path = Path(filename)
+    stem = unicodedata.normalize("NFKD", path.stem.replace("đ", "d").replace("Đ", "D"))
+    ascii_stem = "".join(c for c in stem if c.isascii() and c.isprintable() and c not in '"\\') or "transcript"
+    return f"attachment; filename=\"{ascii_stem}{path.suffix}\"; filename*=UTF-8''{quote(filename, safe='')}"
+
+
+@router.get("/{meeting_id}/export", response_class=Response)
+def export_meeting(
+    db: DbSession, meeting_id: uuid.UUID, export_format: Annotated[ExportFormat, Query(alias="format")],
+) -> Response:
+    """Download the transcript as plain text (`txt`) or subtitles (`srt`)."""
+    meeting = service.get_transcript(db, meeting_id)
+    content, media_type, filename = export_transcript(meeting, export_format)
+    return Response(content, media_type=media_type,
+                    headers={"Content-Disposition": _content_disposition(filename)})
 
 
 @router.patch("/{meeting_id}/speakers/{speaker_id}", response_model=SpeakerOut)
