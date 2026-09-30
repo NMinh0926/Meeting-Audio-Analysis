@@ -44,6 +44,11 @@ class Settings(BaseSettings):
     # Gender
     GENDER_MODEL: str = "alefiury/wav2vec2-large-xlsr-53-gender-recognition-librispeech"
     MIN_GENDER_DURATION: float = 0.5  # seconds
+    # Audio classified per speaker: pieces of at most GENDER_CHUNK_SECONDS, GENDER_SECONDS_PER_SPEAKER in total
+    GENDER_CHUNK_SECONDS: float = 10.0
+    GENDER_SECONDS_PER_SPEAKER: float = 60.0
+    # Below this average confidence the speaker is reported as "unknown"
+    GENDER_MIN_CONFIDENCE: float = 0.6
 
     # Sentiment
     SENTIMENT_MODEL: str = "lxyuan/distilbert-base-multilingual-cased-sentiments-student"

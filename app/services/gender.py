@@ -30,6 +30,34 @@ def get_gender_pipeline() -> Any:
             raise
     return _gender_pipeline
 
+def select_chunks(
+    segments: list[SpeakerSegment],
+    min_duration: float,
+    chunk_seconds: float,
+    budget_seconds: float,
+) -> list[tuple[float, float]]:
+    """Pick the parts of one speaker's audio to classify.
+
+    Longest segments first (cleanest speech), cut into pieces of at most `chunk_seconds`, until
+    `budget_seconds` are collected. Pieces shorter than `min_duration` are skipped. Bounding both
+    keeps long meetings fast and each model input small.
+    """
+    chunks: list[tuple[float, float]] = []
+    total = 0.0
+    for seg in sorted(segments, key=lambda s: s.end - s.start, reverse=True):
+        start = seg.start
+        while total < budget_seconds:
+            end = min(seg.end, start + chunk_seconds, start + budget_seconds - total)
+            if end - start < min_duration:
+                break
+            chunks.append((start, end))
+            total += end - start
+            start = end
+        if total >= budget_seconds:
+            break
+    return chunks
+
+
 def predict_speakers_gender(
     normalized_audio_path: str | Path,
     speaker_segments: list[SpeakerSegment]
@@ -65,15 +93,15 @@ def predict_speakers_gender(
         total_duration = 0.0
         weighted_scores = {"male": 0.0, "female": 0.0}
         
-        for seg in segments:
-            duration = seg.end - seg.start
-            if duration < settings.MIN_GENDER_DURATION:
-                continue
-                
-            # Extract chunk in milliseconds
-            start_ms = int(seg.start * 1000)
-            end_ms = int(seg.end * 1000)
-            chunk = audio[start_ms:end_ms]
+        chunks = select_chunks(
+            segments,
+            min_duration=settings.MIN_GENDER_DURATION,
+            chunk_seconds=settings.GENDER_CHUNK_SECONDS,
+            budget_seconds=settings.GENDER_SECONDS_PER_SPEAKER,
+        )
+        for start, end in chunks:
+            duration = end - start
+            chunk = audio[int(start * 1000):int(end * 1000)]
             
             # Convert to float32 numpy array
             samples = np.array(chunk.get_array_of_samples(), dtype=np.float32) / 32768.0
@@ -92,7 +120,7 @@ def predict_speakers_gender(
                 total_duration += duration
                 
             except Exception as e:
-                logger.warning(f"Failed to classify gender for segment {seg}: {e}")
+                logger.warning(f"Failed to classify gender for {speaker} at {start:.1f}-{end:.1f}s: {e}")
                 
         if total_duration > 0:
             avg_male = weighted_scores["male"] / total_duration
@@ -105,6 +133,10 @@ def predict_speakers_gender(
                 final_gender = "female"
                 final_conf = avg_female
                 
+            if final_conf < settings.GENDER_MIN_CONFIDENCE:
+                # The model hesitates between the two: say so instead of guessing.
+                final_gender = "unknown"
+
             result[speaker] = GenderResult(
                 gender=final_gender,
                 confidence=round(final_conf, 4)

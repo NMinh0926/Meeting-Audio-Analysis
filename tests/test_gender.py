@@ -3,7 +3,7 @@ import pytest
 import numpy as np
 from unittest.mock import MagicMock
 
-from app.services.gender import predict_speakers_gender
+from app.services.gender import predict_speakers_gender, select_chunks
 from app.models.schemas import SpeakerSegment
 
 class MockAudioSegment:
@@ -73,3 +73,57 @@ def test_predict_speakers_gender_model_fail(monkeypatch):
     
     assert result["SPK1"].gender == "unknown"
     assert result["SPK1"].confidence == 0.0
+
+
+def _seg(start, end, speaker="S"):
+    return SpeakerSegment(speaker=speaker, start=start, end=end)
+
+
+def test_select_chunks_takes_longest_segments_first_in_bounded_pieces():
+    segments = [_seg(0, 3), _seg(10, 35), _seg(40, 48)]
+
+    chunks = select_chunks(segments, min_duration=0.5, chunk_seconds=10, budget_seconds=35)
+
+    assert chunks == [(10, 20), (20, 30), (30, 35), (40, 48), (0, 2)]
+
+
+def test_select_chunks_skips_pieces_shorter_than_minimum():
+    chunks = select_chunks([_seg(0, 10.3), _seg(20, 20.4)], min_duration=0.5, chunk_seconds=5, budget_seconds=60)
+    assert chunks == [(0, 5), (5, 10)]
+
+
+def test_select_chunks_bounds_audio_of_a_long_meeting():
+    # 45 minutes of one speaker in 200-second turns: only the budget is classified.
+    segments = [_seg(i * 200.0, i * 200.0 + 200.0) for i in range(14)]
+    chunks = select_chunks(segments, min_duration=0.5, chunk_seconds=10, budget_seconds=60)
+    assert len(chunks) == 6
+    assert all(end - start == 10 for start, end in chunks)
+
+
+def test_low_confidence_speaker_is_unknown(monkeypatch):
+    monkeypatch.setattr("app.services.gender.get_gender_pipeline",
+                        lambda: lambda samples: [{"label": "male", "score": 0.55}, {"label": "female", "score": 0.45}])
+    monkeypatch.setattr("app.services.gender.AudioSegment.from_wav", lambda x: MockAudioSegment(10000))
+
+    result = predict_speakers_gender("dummy.wav", [_seg(0, 2)])
+
+    assert result["S"].gender == "unknown"
+    assert result["S"].confidence == 0.55
+
+
+def test_long_turns_are_classified_in_pieces(monkeypatch):
+    lengths = []
+
+    class RecordingAudio(MockAudioSegment):
+        def __getitem__(self, val):
+            lengths.append(val.stop - val.start)
+            return self
+
+    monkeypatch.setattr("app.services.gender.get_gender_pipeline",
+                        lambda: lambda samples: [{"label": "female", "score": 0.9}, {"label": "male", "score": 0.1}])
+    monkeypatch.setattr("app.services.gender.AudioSegment.from_wav", lambda x: RecordingAudio(300000))
+
+    result = predict_speakers_gender("dummy.wav", [_seg(0, 222.8)])
+
+    assert result["S"].gender == "female"
+    assert lengths == [10000] * 6
