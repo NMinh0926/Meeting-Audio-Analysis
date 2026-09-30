@@ -49,3 +49,22 @@ often merges two of the ~10 s voices into one speaker.
   The 0.2 threshold was picked on the main set and holds on the held-out set.
 - Median F0: male p10/p50/p90 = 115/134/155 Hz, female 147/170/211 Hz. Adding a pitch rule to ECAPA
   made results worse (92–95 %).
+
+## 4. After switching to ECAPA (`f2a4f76`, through the app code path)
+`predict_speakers_gender`: ≤ 10 s pieces, ≤ 60 s per speaker, duration-weighted mean p(male),
+male from 0.2, "unknown" when confidence < 0.55. The vendored model gives logits identical to upstream
+(max difference 0.0 on 20 clips).
+
+| Set | Correct | Wrong | Unknown |
+|---|---|---|---|
+| Main clips (60 M / 60 F) | 120 | 0 | 0 |
+| Held-out clips (60 M / 60 F) | 119 | 0 | 1 (male) |
+| 6 meetings, gap 0.2 s (24 speakers) | 22 | 0 | 2 |
+
+The two unknowns in meetings are clips that diarization merged into a speaker of the other gender, so the
+average lands near the threshold. Speaker attribution unchanged: 0/24 mixed utterances, 100 %.
+
+Gender step on processed meetings (`scripts.bench_gender`): 0.3–1.7 s per file (was 1.1–2.3 s with the
+wav2vec2 model after chunking, 5.6–54.9 s before). Life Abroad ep8 speaker SPEAKER_01 goes from
+"unknown 0.53" to "male 0.95"; ep8 5 min SPEAKER_01 from "female 0.71" to "male 0.96" (the episode is two
+men talking).
