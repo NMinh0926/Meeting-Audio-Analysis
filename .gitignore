@@ -39,3 +39,6 @@ data/temp/*
 # Test scratch files
 tests/.tmp/
 .pytest_cache/
+
+# Downloaded real recordings (large; third-party licenses, e.g. CC BY-NC-ND from archive.org)
+sample_data/real/
