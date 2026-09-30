@@ -66,5 +66,5 @@ average lands near the threshold. Speaker attribution unchanged: 0/24 mixed utte
 
 Gender step on processed meetings (`scripts.bench_gender`): 0.3–1.7 s per file (was 1.1–2.3 s with the
 wav2vec2 model after chunking, 5.6–54.9 s before). Life Abroad ep8 speaker SPEAKER_01 goes from
-"unknown 0.53" to "male 0.95"; ep8 5 min SPEAKER_01 from "female 0.71" to "male 0.96" (the episode is two
-men talking).
+"unknown 0.53" to "male 0.95"; ep8 5 min SPEAKER_01 from "female 0.71" to "male 0.96". The ep8 guest is a man
+(episode description); the host is also detected male in ep4. Not verified by listening.
