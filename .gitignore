@@ -26,9 +26,7 @@ env/
 Thumbs.db
 
 # Data (keep directory structure via .gitkeep)
-data/uploads/*
 data/temp/*
-!data/uploads/.gitkeep
 !data/temp/.gitkeep
 
 # Model cache

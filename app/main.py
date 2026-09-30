@@ -13,8 +13,7 @@ def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
     settings = get_settings()
 
-    # Ensure required directories exist
-    Path(settings.UPLOAD_DIR).mkdir(parents=True, exist_ok=True)
+    # Working directory for downloaded recordings and normalized audio
     Path(settings.TEMP_DIR).mkdir(parents=True, exist_ok=True)
 
     app = FastAPI(

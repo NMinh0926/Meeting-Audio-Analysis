@@ -28,7 +28,7 @@ COPY tests ./tests
 COPY sample_data ./sample_data
 
 RUN useradd --create-home --uid 10001 appuser \
-    && mkdir -p /app/data/uploads /app/data/temp /app/.cache \
+    && mkdir -p /app/data/temp /app/.cache \
     && chown -R appuser:appuser /app
 USER appuser
 

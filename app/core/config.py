@@ -8,8 +8,7 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     """Application settings read from environment variables / .env file."""
 
-    # Directories
-    UPLOAD_DIR: str = "data/uploads"
+    # Working directory for intermediate audio
     TEMP_DIR: str = "data/temp"
 
     # PostgreSQL (compose builds DATABASE_URL from POSTGRES_*)
