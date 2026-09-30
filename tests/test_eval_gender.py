@@ -30,9 +30,9 @@ def test_accuracy_table_counts_and_thresholds():
 
     assert "| male | 2 | 1 | 1 | 0 |" in table
     assert "| female | 2 | 1 | 0 | 1 |" in table
-    assert "| 0.0 | 3/4 | 66.7% |" in table
-    assert "| 0.6 | 2/4 | 100.0% |" in table
-    assert "| 0.9 | 1/4 | 100.0% |" in table
+    assert "| 0.00 | 3/4 | 66.7% |" in table
+    assert "| 0.60 | 2/4 | 100.0% |" in table
+    assert "| 0.80 | 2/4 | 100.0% |" in table
 
 
 SPANS = [(0.0, 5.0, "male"), (5.2, 10.0, "female")]

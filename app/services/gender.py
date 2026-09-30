@@ -1,4 +1,4 @@
-"""Gender classification service."""
+"""Gender classification service (ECAPA-TDNN, see docs/benchmarks/2026-10-01-speakers-gender.md)."""
 from pathlib import Path
 from typing import Any
 import logging
@@ -12,23 +12,45 @@ from app.models.schemas import SpeakerSegment, GenderResult
 logger = logging.getLogger(__name__)
 
 # Global model instance
-_gender_pipeline: Any = None
+_gender_model: Any = None
 
-def get_gender_pipeline() -> Any:
-    global _gender_pipeline
-    if _gender_pipeline is None:
+def get_gender_model() -> Any:
+    global _gender_model
+    if _gender_model is None:
         settings = get_settings()
         try:
-            from transformers import pipeline
-            _gender_pipeline = pipeline(
-                "audio-classification", 
-                model=settings.GENDER_MODEL,
-                device=settings.DEVICE
-            )
+            from app.services.ecapa_gender import ECAPAGender
+            _gender_model = ECAPAGender.from_pretrained(settings.GENDER_MODEL).to(settings.DEVICE).eval()
         except Exception as e:
             logger.error(f"Failed to load gender model: {e}")
             raise
-    return _gender_pipeline
+    return _gender_model
+
+def male_probability(samples: np.ndarray) -> float:
+    """Probability that a 16 kHz mono float waveform is a male voice."""
+    import torch
+
+    from app.services.ecapa_gender import MALE
+
+    model = get_gender_model()
+    with torch.inference_mode():
+        waveform = torch.from_numpy(samples).unsqueeze(0).to(get_settings().DEVICE)
+        return float(torch.softmax(model(waveform), dim=1)[0, MALE])
+
+def decide_gender(p_male: float, male_threshold: float, min_confidence: float) -> GenderResult:
+    """Turn an average male probability into a label and a confidence in [0.5, 1].
+
+    The model under-rates Vietnamese male voices, so "male" starts at `male_threshold` rather than 0.5.
+    Confidence is the distance from that threshold, rescaled to each side; below `min_confidence`
+    the speaker is too close to call and is reported as "unknown".
+    """
+    if p_male >= male_threshold:
+        gender, confidence = "male", 0.5 + 0.5 * (p_male - male_threshold) / (1 - male_threshold)
+    else:
+        gender, confidence = "female", 0.5 + 0.5 * (male_threshold - p_male) / male_threshold
+    if confidence < min_confidence:
+        gender = "unknown"
+    return GenderResult(gender=gender, confidence=round(confidence, 4))
 
 def select_chunks(
     segments: list[SpeakerSegment],
@@ -62,25 +84,25 @@ def predict_speakers_gender(
     normalized_audio_path: str | Path,
     speaker_segments: list[SpeakerSegment]
 ) -> dict[str, GenderResult]:
-    """Predicts gender for each speaker by aggregating audio segments.
-    
+    """Predicts gender for each speaker by averaging the model over pieces of their speech.
+
     Returns:
         Dictionary mapping speaker label to GenderResult.
     """
     settings = get_settings()
-    
+
     # Group segments by speaker
     segments_by_speaker: dict[str, list[SpeakerSegment]] = {}
     for seg in speaker_segments:
         segments_by_speaker.setdefault(seg.speaker, []).append(seg)
-        
+
     result = {}
-    
+
     if not segments_by_speaker:
         return result
-        
+
     try:
-        classifier = get_gender_pipeline()
+        get_gender_model()
         audio = AudioSegment.from_wav(str(normalized_audio_path))
     except Exception as e:
         logger.error(f"Error loading audio or model for gender classification: {e}")
@@ -91,8 +113,8 @@ def predict_speakers_gender(
 
     for speaker, segments in segments_by_speaker.items():
         total_duration = 0.0
-        weighted_scores = {"male": 0.0, "female": 0.0}
-        
+        weighted_male = 0.0
+
         chunks = select_chunks(
             segments,
             min_duration=settings.MIN_GENDER_DURATION,
@@ -102,48 +124,24 @@ def predict_speakers_gender(
         for start, end in chunks:
             duration = end - start
             chunk = audio[int(start * 1000):int(end * 1000)]
-            
+
             # Convert to float32 numpy array
             samples = np.array(chunk.get_array_of_samples(), dtype=np.float32) / 32768.0
-            
+
             try:
-                preds = classifier(samples)
-                # preds is like [{'score': 0.9, 'label': 'male'}, ...]
-                scores_dict = {p['label'].lower(): p['score'] for p in preds}
-                
-                # We expect 'male' and 'female' labels
-                male_score = scores_dict.get('male', 0.0)
-                female_score = scores_dict.get('female', 0.0)
-                
-                weighted_scores["male"] += male_score * duration
-                weighted_scores["female"] += female_score * duration
+                weighted_male += male_probability(samples) * duration
                 total_duration += duration
-                
             except Exception as e:
                 logger.warning(f"Failed to classify gender for {speaker} at {start:.1f}-{end:.1f}s: {e}")
-                
-        if total_duration > 0:
-            avg_male = weighted_scores["male"] / total_duration
-            avg_female = weighted_scores["female"] / total_duration
-            
-            if avg_male > avg_female:
-                final_gender = "male"
-                final_conf = avg_male
-            else:
-                final_gender = "female"
-                final_conf = avg_female
-                
-            if final_conf < settings.GENDER_MIN_CONFIDENCE:
-                # The model hesitates between the two: say so instead of guessing.
-                final_gender = "unknown"
 
-            result[speaker] = GenderResult(
-                gender=final_gender,
-                confidence=round(final_conf, 4)
+        if total_duration > 0:
+            result[speaker] = decide_gender(
+                weighted_male / total_duration,
+                male_threshold=settings.GENDER_MALE_THRESHOLD,
+                min_confidence=settings.GENDER_MIN_CONFIDENCE,
             )
         else:
             # Not enough data
             result[speaker] = GenderResult(gender="unknown", confidence=0.0)
-            
-    return result
 
+    return result

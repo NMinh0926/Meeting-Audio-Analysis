@@ -162,20 +162,20 @@ def accuracy_table(results: list[tuple[str, str, float]]) -> str:
         unknown = sum(r[1] not in GENDERS for r in rows)
         lines.append(f"| {gender} | {len(rows)} | {correct} | {len(rows) - correct - unknown} | {unknown} |")
     lines += ["", "| Min confidence | Answered | Accuracy of answered |", "|---|---|---|"]
-    for threshold in (0.0, 0.6, 0.7, 0.8, 0.9):
+    for threshold in (0.0, 0.55, 0.6, 0.7, 0.8):
         answered = [r for r in results if r[1] in GENDERS and r[2] >= threshold]
         correct = sum(r[0] == r[1] for r in answered)
         rate = f"{correct / len(answered):.1%}" if answered else "–"
-        lines.append(f"| {threshold:.1f} | {len(answered)}/{len(results)} | {rate} |")
+        lines.append(f"| {threshold:.2f} | {len(answered)}/{len(results)} | {rate} |")
     return "\n".join(lines)
 
 
 def run_clips(directory: Path) -> None:
     from app.models.schemas import SpeakerSegment
     from app.services.audio_preprocessing import preprocess_audio
-    from app.services.gender import get_gender_pipeline, predict_speakers_gender
+    from app.services.gender import get_gender_model, predict_speakers_gender
 
-    get_gender_pipeline()
+    get_gender_model()
     results = []
     started = time.perf_counter()
     for clip in load_manifest(directory):

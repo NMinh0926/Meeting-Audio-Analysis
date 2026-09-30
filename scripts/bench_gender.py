@@ -20,7 +20,7 @@ from app.db.models import Meeting, MeetingStatus
 from app.db.session import get_sessionmaker
 from app.models.schemas import SpeakerSegment
 from app.services.audio_preprocessing import preprocess_audio
-from app.services.gender import get_gender_pipeline, predict_speakers_gender
+from app.services.gender import get_gender_model, predict_speakers_gender
 from app.storage.s3 import S3Storage
 
 
@@ -44,7 +44,7 @@ def main() -> int:
         ]
 
     started = time.perf_counter()
-    get_gender_pipeline()
+    get_gender_model()
     print(f"model load: {time.perf_counter() - started:.1f}s (device={settings.DEVICE})", file=sys.stderr)
 
     print("| File | Audio (s) | Turns | Gender (s) | Result (stored → now) |")

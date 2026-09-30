@@ -45,13 +45,16 @@ class Settings(BaseSettings):
     MERGE_GAP_SECONDS: float = 2.0
 
     # Gender
-    GENDER_MODEL: str = "alefiury/wav2vec2-large-xlsr-53-gender-recognition-librispeech"
+    # ECAPA-TDNN (MIT): 120/120 on held-out Vietnamese FLEURS voices with the 0.2 male threshold
+    GENDER_MODEL: str = "JaesungHuh/voice-gender-classifier"
     MIN_GENDER_DURATION: float = 0.5  # seconds
     # Audio classified per speaker: pieces of at most GENDER_CHUNK_SECONDS, GENDER_SECONDS_PER_SPEAKER in total
     GENDER_CHUNK_SECONDS: float = 10.0
     GENDER_SECONDS_PER_SPEAKER: float = 60.0
-    # Below this average confidence the speaker is reported as "unknown"
-    GENDER_MIN_CONFIDENCE: float = 0.6
+    # Average male probability from which a speaker is male (the model under-rates Vietnamese men)
+    GENDER_MALE_THRESHOLD: float = 0.2
+    # Below this confidence (distance from the threshold, 0.5..1) the speaker is reported as "unknown"
+    GENDER_MIN_CONFIDENCE: float = 0.55
 
     # Sentiment
     SENTIMENT_MODEL: str = "lxyuan/distilbert-base-multilingual-cased-sentiments-student"
