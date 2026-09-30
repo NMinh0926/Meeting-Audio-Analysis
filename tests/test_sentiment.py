@@ -47,3 +47,22 @@ def test_predict_sentiment_model_fail(monkeypatch):
     assert res.sentiment == "unknown"
     assert res.confidence == 0.0
 
+
+
+def test_sentiment_model_loads_on_configured_device(monkeypatch):
+    import sys
+    from types import SimpleNamespace
+
+    from app.core.config import get_settings
+    from app.services import sentiment
+
+    calls = {}
+    monkeypatch.setattr(sentiment, "_sentiment_pipeline", None)
+    monkeypatch.setattr(get_settings(), "SENTIMENT_DEVICE", "cpu")
+    # A stand-in module: no real model is downloaded or loaded.
+    fake = SimpleNamespace(pipeline=lambda task, **kwargs: calls.update(kwargs) or object())
+    monkeypatch.setitem(sys.modules, "transformers", fake)
+
+    sentiment.get_sentiment_pipeline()
+
+    assert calls["device"] == "cpu"

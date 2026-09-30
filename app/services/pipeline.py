@@ -3,6 +3,7 @@ import logging
 from collections.abc import Callable
 from pathlib import Path
 
+from app.core.gpu import release_cached_memory
 from app.models.schemas import MeetingAnalysisResult, FinalTurn
 from app.services.audio_preprocessing import preprocess_audio
 from app.services.transcription import transcribe_audio
@@ -34,13 +35,15 @@ def analyze_meeting(audio_path: str | Path, on_stage: StageCallback | None = Non
     normalized_path = prep_result.normalized_path
 
     try:
-        # 2. Transcription
+        # 2. Transcription. Whisper (CTranslate2) needs the memory PyTorch may still hold from the last job.
         stage(2, "transcription", "Transcription")
+        release_cached_memory()
         transcripts = transcribe_audio(normalized_path)
 
         # 3. Diarization
         stage(3, "diarization", "Diarization")
         speakers = diarize_audio(normalized_path)
+        release_cached_memory()
 
         # 4. Alignment
         stage(4, "alignment", "Alignment")
@@ -53,6 +56,7 @@ def analyze_meeting(audio_path: str | Path, on_stage: StageCallback | None = Non
         # 6. Gender prediction per speaker
         stage(6, "gender", "Gender Classification")
         gender_map = predict_speakers_gender(normalized_path, speakers)
+        release_cached_memory()
     finally:
         # The normalized WAV is only an intermediate; later stages work on text.
         Path(normalized_path).unlink(missing_ok=True)

@@ -132,3 +132,14 @@ def test_analyze_meeting_removes_normalized_audio_on_failure(mock_all_services, 
     with pytest.raises(RuntimeError):
         analyze_meeting(tmp_path / "dummy.wav")
     assert not normalized.exists()
+
+
+def test_gpu_cache_is_released_before_transcription_and_after_torch_stages(mock_all_services, monkeypatch, tmp_path):
+    events = []
+    monkeypatch.setattr("app.services.pipeline.release_cached_memory", lambda: events.append("release"))
+
+    analyze_meeting(tmp_path / "dummy.wav", on_stage=events.append)
+
+    assert events[:3] == ["preprocessing", "transcription", "release"]
+    assert events[events.index("diarization") + 1] == "release"
+    assert events[events.index("gender") + 1] == "release"

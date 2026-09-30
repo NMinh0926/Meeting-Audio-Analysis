@@ -59,6 +59,8 @@ class Settings(BaseSettings):
 
     # Sentiment
     SENTIMENT_MODEL: str = "lxyuan/distilbert-base-multilingual-cased-sentiments-student"
+    # A small text model: fast enough on CPU, and it leaves the 4 GB GPU to the audio models.
+    SENTIMENT_DEVICE: str = "cpu"
 
     # Hugging Face
     HF_TOKEN: str = ""
