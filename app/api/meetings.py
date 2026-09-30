@@ -116,7 +116,7 @@ def _content_disposition(filename: str) -> str:
 def export_meeting(
     db: DbSession, meeting_id: uuid.UUID, export_format: Annotated[ExportFormat, Query(alias="format")],
 ) -> Response:
-    """Download the transcript as plain text (`txt`) or subtitles (`srt`)."""
+    """Download the transcript as text (`txt`), subtitles (`srt`) or all extracted data (`json`)."""
     meeting = service.get_transcript(db, meeting_id)
     content, media_type, filename = export_transcript(meeting, export_format)
     return Response(content, media_type=media_type,
