@@ -127,8 +127,11 @@ chờ bạn đồng ý mới sửa.
 
 ### Đã làm
 - Giới tính trong mọi đầu ra: TXT (`Chị Lan (Nữ, 98%)`, mỗi lượt `Tên (Nữ): …`), SRT, thêm `format=json`.
-- Chép lời: `base` → **`large-v3-turbo`** + VAD. WER trên 120 clip FLEURS: 25.9 % → **5.9 %**
+- Chép lời: `base` → **`large-v3-turbo`**. WER trên 120 clip FLEURS: 25.9 % → **5.9 %**
   (`docs/benchmarks/2026-09-30-asr-models.md`; PhoWhisper small/medium kém hơn: 12.7 % / 9.5 %).
+- Bỏ VAD (làm mất nguyên câu giữa 2 người nói); chống câu bịa ("Hãy subscribe cho kênh …") bằng
+  `hallucination_silence_threshold` 2 s + giải mã từng đoạn độc lập: 10 cuộc họp ghép 0/40 câu mất, 0 câu bịa
+  (`docs/benchmarks/2026-10-01-decoding.md`).
 - Gán người nói **theo từng từ** (`word_timestamps`), tách câu khi đổi người nói, làm mượt từ lẻ ≤ 0.5 s.
   Câu "lẫn" 2 người trong 6 cuộc họp ghép: 9/32 → **0/24**; gán đúng 94.1 % → **100 %**.
 - Giới tính: model cũ (wav2vec2 LibriSpeech) nhận sai 34/60 giọng nam Việt thành nữ → thay bằng
@@ -136,8 +139,8 @@ chờ bạn đồng ý mới sửa.
   độ tin cậy < 0.55 → "Không rõ". Tập chỉnh ngưỡng 120/120, **tập held-out 119/120 (1 không rõ, 0 sai)**,
   cuộc họp ghép 22/24 (2 không rõ, 0 sai). Mỗi người nói chấm tối đa 60 s theo khúc ≤ 10 s:
   bước giới tính 5.6–54.9 s → 0.3–1.7 s (`docs/benchmarks/2026-10-01-speakers-gender.md`).
-- Tập 45 phút: 37 phút 42 s → 5 phút 31 s (turbo + giới tính theo khúc; một phần do GPU không bị đầy
-  sau khi worker khởi động lại — đo kỹ ở Giai đoạn 5).
+- Tập 45 phút: 37 phút 42 s → 5 phút 31 s khi worker vừa khởi động, nhưng 16.5 phút sau 7 job liên tiếp
+  (tách người nói 2.2 → 12.6 phút): model dồn lại làm đầy GPU 4 GB — xử lý ở Giai đoạn 5.
 - Script đánh giá: `scripts/bench_asr.py` (WER), `scripts/eval_gender.py` (fetch/clips/meetings, held-out),
   `scripts/bench_gender.py`. Dữ liệu FLEURS và cuộc họp ghép trong `sample_data/real/` (không commit).
 - Test: 178 test qua.
