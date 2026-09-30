@@ -12,6 +12,22 @@ class Settings(BaseSettings):
     UPLOAD_DIR: str = "data/uploads"
     TEMP_DIR: str = "data/temp"
 
+    # PostgreSQL (compose builds DATABASE_URL from POSTGRES_*)
+    DATABASE_URL: str = "postgresql+psycopg://meeting:meeting_dev_password@localhost:5432/meeting"
+
+    # S3-compatible object storage for original recordings
+    S3_ENDPOINT: str = "http://localhost:8333"
+    S3_ACCESS_KEY: str = ""
+    S3_SECRET_KEY: str = ""
+    S3_BUCKET: str = "meetings"
+    S3_REGION: str = "us-east-1"
+
+    # Upload limits
+    MAX_UPLOAD_MB: int = 500
+
+    # Worker: seconds to wait before polling again when the queue is empty
+    WORKER_POLL_SECONDS: float = 2.0
+
     # Inference device for every model: "cpu" or "cuda"
     DEVICE: str = "cpu"
 
