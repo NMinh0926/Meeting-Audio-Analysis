@@ -85,7 +85,7 @@ def get_audio(
     try:
         byte_range = parse_range(range_header, size)
     except RangeNotSatisfiableError:
-        return Response(status_code=status.HTTP_416_RANGE_NOT_SATISFIABLE,
+        return Response(status_code=status.HTTP_416_REQUESTED_RANGE_NOT_SATISFIABLE,
                         headers={"Content-Range": f"bytes */{size}", "Accept-Ranges": "bytes"})
 
     start, end = byte_range or (0, size - 1)
