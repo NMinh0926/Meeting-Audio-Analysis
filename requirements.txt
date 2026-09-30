@@ -11,6 +11,12 @@ pyannote.audio==4.0.7
 transformers==5.17.0
 numpy==2.4.6
 
+# Storage: PostgreSQL metadata, S3-compatible object storage
+SQLAlchemy==2.1.1
+alembic==1.20.0
+psycopg[binary]==3.3.6
+boto3==1.43.105
+
 # Tests
 pytest==9.1.1
 httpx==0.28.1
