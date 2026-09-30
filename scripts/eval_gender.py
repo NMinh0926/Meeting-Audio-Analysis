@@ -5,8 +5,10 @@
     docker compose run --rm -v "${PWD}:/app" api python -m scripts.eval_gender meetings --count 6
 
 fetch     streams the FLEURS train archive (1.6 GB) and stops once it has extracted N clips per gender
-          (the dev and test splits are all male).
-clips     classifies each clip on its own: the gender model without diarization errors.
+          (the dev and test splits are all male). `--holdout` fetches other clips, in archive order,
+          into a held-out set that is never used to pick settings.
+clips     classifies each clip on its own: the gender model without diarization errors (`--holdout`
+          for the held-out set).
 meetings  joins clips of different genders into short synthetic meetings, runs the full pipeline and
           checks the gender given to the speaker covering each clip.
 Clips go to sample_data/real/fleurs/ (not committed, not in the image).
@@ -26,7 +28,9 @@ from pathlib import Path
 
 BASE_URL = "https://huggingface.co/datasets/google/fleurs/resolve/main/data/vi_vn"
 DATA_DIR = Path("sample_data/real/fleurs")
-MANIFEST = DATA_DIR / "manifest.tsv"
+# Clips never used to choose settings, to check that a tuned threshold holds on new voices.
+HOLDOUT_DIR = Path("sample_data/real/fleurs_holdout")
+MANIFEST_NAME = "manifest.tsv"
 GENDERS = ("male", "female")
 SILENCE_SECONDS = 0.8
 
@@ -58,12 +62,24 @@ def select_balanced(rows: list[tuple[str, str, str]], per_gender: int, seed: int
     return chosen
 
 
-def fetch(per_gender: int) -> None:
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
+def _train_rows() -> list[tuple[str, str, str]]:
+    """(file_name, raw transcription, GENDER) for every clip of the train split."""
     with urllib.request.urlopen(f"{BASE_URL}/train.tsv") as response:
         tsv = response.read().decode("utf-8")
-    rows = [(r[1], r[2], r[6]) for r in csv.reader(io.StringIO(tsv), delimiter="\t", quoting=csv.QUOTE_NONE)]
-    wanted = select_balanced(rows, per_gender)
+    return [(r[1], r[2], r[6]) for r in csv.reader(io.StringIO(tsv), delimiter="\t", quoting=csv.QUOTE_NONE)]
+
+
+def _write_manifest(directory: Path, entries: dict[str, tuple[str, str]]) -> None:
+    with (directory / MANIFEST_NAME).open("w", encoding="utf-8", newline="") as f:
+        writer = csv.writer(f, delimiter="\t")
+        for name, (gender, text) in sorted(entries.items()):
+            if (directory / name).exists():
+                writer.writerow([name, gender, text])
+
+
+def fetch(per_gender: int) -> None:
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    wanted = select_balanced(_train_rows(), per_gender)
     missing = {name for name in wanted if not (DATA_DIR / name).exists()}
     print(f"selected {len(wanted)} clips, {len(missing)} to download", file=sys.stderr)
 
@@ -84,11 +100,30 @@ def fetch(per_gender: int) -> None:
     if missing:
         print(f"{len(missing)} clips not found in the archive", file=sys.stderr)
 
-    with MANIFEST.open("w", encoding="utf-8", newline="") as f:
-        writer = csv.writer(f, delimiter="\t")
-        for name, (gender, text) in sorted(wanted.items()):
-            if (DATA_DIR / name).exists():
-                writer.writerow([name, gender, text])
+    _write_manifest(DATA_DIR, wanted)
+
+
+def fetch_holdout(per_gender: int) -> None:
+    """The first N clips per gender in archive order that are not in the main set (reads little of it)."""
+    HOLDOUT_DIR.mkdir(parents=True, exist_ok=True)
+    used = {clip.path.name for clip in load_manifest()}
+    labels = {name: (gender.lower(), text) for name, text, gender in _train_rows() if name not in used}
+    taken: dict[str, tuple[str, str]] = {}
+    counts = dict.fromkeys(GENDERS, 0)
+    with urllib.request.urlopen(f"{BASE_URL}/audio/train.tar.gz") as response:
+        counting = _CountingReader(response)
+        with tarfile.open(fileobj=counting, mode="r|gz") as archive:
+            for member in archive:
+                name = Path(member.name).name
+                gender = labels.get(name, ("", ""))[0]
+                if member.isfile() and gender in counts and counts[gender] < per_gender:
+                    (HOLDOUT_DIR / name).write_bytes(archive.extractfile(member).read())
+                    taken[name] = labels[name]
+                    counts[gender] += 1
+                if all(count >= per_gender for count in counts.values()):
+                    break
+    print(f"extracted {counts} after {counting.bytes_read / 1e6:.0f} MB", file=sys.stderr)
+    _write_manifest(HOLDOUT_DIR, taken)
 
 
 class _CountingReader(io.RawIOBase):
@@ -107,9 +142,9 @@ class _CountingReader(io.RawIOBase):
         return len(data)
 
 
-def load_manifest() -> list[Clip]:
-    with MANIFEST.open(encoding="utf-8") as f:
-        return [Clip(DATA_DIR / name, gender, text) for name, gender, text in csv.reader(f, delimiter="\t")]
+def load_manifest(directory: Path = DATA_DIR) -> list[Clip]:
+    with (directory / MANIFEST_NAME).open(encoding="utf-8") as f:
+        return [Clip(directory / name, gender, text) for name, gender, text in csv.reader(f, delimiter="\t")]
 
 
 def _duration(path: Path) -> float:
@@ -135,7 +170,7 @@ def accuracy_table(results: list[tuple[str, str, float]]) -> str:
     return "\n".join(lines)
 
 
-def run_clips() -> None:
+def run_clips(directory: Path) -> None:
     from app.models.schemas import SpeakerSegment
     from app.services.audio_preprocessing import preprocess_audio
     from app.services.gender import get_gender_pipeline, predict_speakers_gender
@@ -143,8 +178,8 @@ def run_clips() -> None:
     get_gender_pipeline()
     results = []
     started = time.perf_counter()
-    for clip in load_manifest():
-        normalized = Path(preprocess_audio(clip.path).normalized_path)
+    for clip in load_manifest(directory):
+        normalized =Path(preprocess_audio(clip.path).normalized_path)
         try:
             segment = SpeakerSegment(speaker="S", start=0.0, end=_duration(normalized))
             prediction = predict_speakers_gender(normalized, [segment])["S"]
@@ -251,7 +286,9 @@ def main() -> int:
     commands = parser.add_subparsers(dest="command", required=True)
     fetch_parser = commands.add_parser("fetch")
     fetch_parser.add_argument("--per-gender", type=int, default=60)
-    commands.add_parser("clips")
+    fetch_parser.add_argument("--holdout", action="store_true", help="Fetch new clips into the held-out set")
+    clips_parser = commands.add_parser("clips")
+    clips_parser.add_argument("--holdout", action="store_true", help="Use the held-out set")
     meetings_parser = commands.add_parser("meetings")
     meetings_parser.add_argument("--count", type=int, default=6)
     meetings_parser.add_argument("--speakers", type=int, default=4)
@@ -259,9 +296,9 @@ def main() -> int:
     args = parser.parse_args()
 
     if args.command == "fetch":
-        fetch(args.per_gender)
+        (fetch_holdout if args.holdout else fetch)(args.per_gender)
     elif args.command == "clips":
-        run_clips()
+        run_clips(HOLDOUT_DIR if args.holdout else DATA_DIR)
     else:
         run_meetings(args.count, args.speakers, args.gap)
     return 0
