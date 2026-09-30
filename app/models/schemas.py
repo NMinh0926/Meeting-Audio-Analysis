@@ -2,8 +2,9 @@
 
 import uuid
 from datetime import datetime
+from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, StringConstraints
 
 from app.db.models import MeetingStatus
 
@@ -117,3 +118,36 @@ class MeetingList(BaseModel):
     total: int
     limit: int
     offset: int
+
+
+class SpeakerRename(BaseModel):
+    display_name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)]
+
+
+class UtteranceOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    start: float
+    end: float
+    text: str
+
+
+class TurnOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    speaker_id: int
+    start: float
+    end: float
+    text: str
+    sentiment: str
+    sentiment_confidence: float
+    utterances: list[UtteranceOut]
+
+
+class TranscriptOut(BaseModel):
+    meeting_id: uuid.UUID
+    filename: str
+    duration_seconds: float | None
+    speakers: list[SpeakerOut]
+    turns: list[TurnOut]

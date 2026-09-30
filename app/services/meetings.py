@@ -1,4 +1,4 @@
-"""Meeting records: upload, listing, retry and deletion. Independent of HTTP."""
+"""Meeting records: upload, listing, retry, deletion, transcript and speaker names. Independent of HTTP."""
 import logging
 import uuid
 from dataclasses import dataclass
@@ -6,9 +6,9 @@ from pathlib import Path
 from typing import BinaryIO
 
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
-from app.db.models import Meeting, MeetingStatus
+from app.db.models import Meeting, MeetingStatus, Segment, Speaker
 from app.storage.base import Storage
 
 logger = logging.getLogger(__name__)
@@ -26,6 +26,10 @@ class InvalidUploadError(MeetingError):
 
 
 class MeetingNotFoundError(MeetingError):
+    pass
+
+
+class SpeakerNotFoundError(MeetingNotFoundError):
     pass
 
 
@@ -136,3 +140,29 @@ def delete_meeting(session: Session, storage: Storage, meeting_id: uuid.UUID) ->
     storage.delete(meeting.storage_key)
     session.delete(meeting)
     session.commit()
+
+
+def _require_done(meeting: Meeting) -> None:
+    if meeting.status != MeetingStatus.done:
+        raise MeetingStateError(f"Meeting is not processed yet (status: {meeting.status.value})")
+
+
+def get_transcript(session: Session, meeting_id: uuid.UUID) -> Meeting:
+    """A processed meeting with speakers, turns and their utterances loaded."""
+    meeting = session.get(
+        Meeting, meeting_id,
+        options=[selectinload(Meeting.speakers), selectinload(Meeting.segments).selectinload(Segment.utterances)],
+    )
+    if meeting is None:
+        raise MeetingNotFoundError(f"Meeting {meeting_id} not found")
+    _require_done(meeting)
+    return meeting
+
+
+def rename_speaker(session: Session, meeting_id: uuid.UUID, speaker_id: int, display_name: str) -> Speaker:
+    speaker = session.scalar(select(Speaker).where(Speaker.id == speaker_id, Speaker.meeting_id == meeting_id))
+    if speaker is None:
+        raise SpeakerNotFoundError(f"Speaker {speaker_id} not found in meeting {meeting_id}")
+    speaker.display_name = display_name
+    session.commit()
+    return speaker

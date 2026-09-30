@@ -1,4 +1,4 @@
-"""Meeting endpoints: upload recordings, follow their jobs, retry and delete."""
+"""Meeting endpoints: upload recordings, follow their jobs, review transcripts, retry and delete."""
 import uuid
 from functools import lru_cache
 from typing import Annotated
@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.db.models import MeetingStatus
 from app.db.session import get_db
-from app.models.schemas import MeetingDetail, MeetingList, MeetingOut
+from app.models.schemas import MeetingDetail, MeetingList, MeetingOut, SpeakerOut, SpeakerRename, TranscriptOut
 from app.services import meetings as service
 from app.storage.base import Storage
 from app.storage.s3 import S3Storage, StorageError
@@ -62,6 +62,20 @@ def list_meetings(
 def get_meeting(db: DbSession, meeting_id: uuid.UUID):
     """Meeting status (current pipeline stage while processing) and its speakers."""
     return service.get_meeting(db, meeting_id)
+
+
+@router.get("/{meeting_id}/transcript", response_model=TranscriptOut)
+def get_transcript(db: DbSession, meeting_id: uuid.UUID):
+    """Speakers and turns in time order, each turn with its utterances (for seeking and highlighting)."""
+    meeting = service.get_transcript(db, meeting_id)
+    return TranscriptOut(meeting_id=meeting.id, filename=meeting.filename, duration_seconds=meeting.duration_seconds,
+                         speakers=meeting.speakers, turns=meeting.segments)
+
+
+@router.patch("/{meeting_id}/speakers/{speaker_id}", response_model=SpeakerOut)
+def rename_speaker(db: DbSession, meeting_id: uuid.UUID, speaker_id: int, body: SpeakerRename):
+    """Change the name shown for a speaker in the transcript and exports."""
+    return service.rename_speaker(db, meeting_id, speaker_id, body.display_name)
 
 
 @router.post("/{meeting_id}/retry", status_code=status.HTTP_202_ACCEPTED, response_model=MeetingOut)

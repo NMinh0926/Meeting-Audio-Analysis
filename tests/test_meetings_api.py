@@ -2,26 +2,12 @@
 import uuid
 
 import pytest
-from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 
 from app.api.meetings import get_storage
 from app.db.models import Meeting, MeetingStatus, Segment, Speaker, Utterance
-from app.db.session import get_db
 from app.main import app
 from tests.fakes import InMemoryStorage
-
-
-@pytest.fixture
-def client(sessions, storage):
-    def db():
-        with sessions() as session:
-            yield session
-
-    app.dependency_overrides[get_db] = db
-    app.dependency_overrides[get_storage] = lambda: storage
-    yield TestClient(app)
-    app.dependency_overrides.clear()
 
 
 def _files(*names: str, content: bytes = b"RIFF-audio") -> list[tuple[str, tuple[str, bytes, str]]]:
