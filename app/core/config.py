@@ -31,8 +31,11 @@ class Settings(BaseSettings):
     DEVICE: str = "cpu"
 
     # Whisper
-    WHISPER_MODEL: str = "base"
+    # large-v3-turbo: 5.9 % WER on Vietnamese vs 25.9 % for base (docs/benchmarks/2026-09-30-asr-models.md)
+    WHISPER_MODEL: str = "large-v3-turbo"
     WHISPER_LANGUAGE: str = "vi"
+    # Skip silence before decoding: fewer hallucinated sentences on pauses
+    WHISPER_VAD: bool = True
     COMPUTE_TYPE: str = "int8"
 
     # Diarization

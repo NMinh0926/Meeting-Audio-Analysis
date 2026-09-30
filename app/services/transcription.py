@@ -2,7 +2,7 @@
 from pathlib import Path
 from typing import Any
 from app.core.config import get_settings
-from app.models.schemas import TranscriptSegment
+from app.models.schemas import TranscriptSegment, Word
 
 class TranscriptionError(Exception):
     pass
@@ -43,16 +43,26 @@ def transcribe_audio(audio_path: str | Path) -> list[TranscriptSegment]:
     
     try:
         # Transcribe
-        segments, info = model.transcribe(str(audio_path), language=settings.WHISPER_LANGUAGE)
+        segments, info = model.transcribe(
+            str(audio_path),
+            language=settings.WHISPER_LANGUAGE,
+            vad_filter=settings.WHISPER_VAD,
+            word_timestamps=True,
+        )
         
         result = []
         for segment in segments:
             text = segment.text.strip()
             if text:
+                words = [
+                    Word(start=w.start, end=w.end, text=w.word)
+                    for w in (segment.words or [])
+                ]
                 result.append(TranscriptSegment(
                     start=segment.start,
                     end=segment.end,
-                    text=text
+                    text=text,
+                    words=words
                 ))
                 
         if not result:

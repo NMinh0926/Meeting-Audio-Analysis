@@ -26,10 +26,18 @@ class PreprocessingResult(BaseModel):
     normalized_path: str
 
 
+class Word(BaseModel):
+    start: float
+    end: float
+    text: str
+
+
 class TranscriptSegment(BaseModel):
     start: float
     end: float
     text: str
+    # Word timings from Whisper, used to split a sentence where the speaker changes.
+    words: list[Word] = []
 
 
 class SpeakerSegment(BaseModel):
