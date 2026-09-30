@@ -86,4 +86,34 @@
   GPU → cùng một bước chạy nhanh chậm thất thường. Xử lý ở Giai đoạn 6.
 - Số người nói chưa chuẩn: file mẫu TTS 3 giọng → 5 người; tập 4 (2 người) → 3 người. Kiểm tra lại khi có
   trang xem bản ghi (Giai đoạn 2) và khi chỉnh diarization (Giai đoạn 6).
-- `UPLOAD_DIR` (config, `main.py`) không còn được dùng vì file gốc lưu trên S3 — xoá khi dọn config.
+
+## Giai đoạn 2 — Xem lại nội dung (2026-09-30)
+
+### Đã làm
+- Bảng `utterances` (migration `0002`): các câu Whisper (đã gắn người nói) bên trong mỗi lượt nói đã gộp.
+  Lý do: lượt nói gộp dài tới 222 s / 3449 ký tự (tập 8) — không dùng được cho SRT hay tua/highlight câu.
+  Bước gộp (`segment_merger`) giữ lại câu gốc; worker lưu cả lượt nói và câu.
+- `GET /api/v1/meetings/{id}/transcript`: người nói (tên hiển thị) + lượt nói theo thời gian, mỗi lượt kèm câu.
+  Chỉ khi `done` (khác → 409).
+- `GET …/{id}/audio`: file gốc stream từ S3, hỗ trợ `Range` một khoảng (`a-b`, `a-`, `-n`) → 206;
+  ngoài file → 416 `bytes */size`; nhiều khoảng / sai cú pháp → trả cả file (RFC 9110 cho phép).
+  Dùng được cả khi chưa xử lý xong. File gốc mất trên S3 → 404.
+- `PATCH …/{id}/speakers/{speaker_id}`: đổi tên hiển thị (bỏ khoảng trắng thừa, 1–100 ký tự).
+- `GET …/{id}/export?format=txt|srt` (`app/services/export.py`, Giai đoạn 4 thêm `pdf`): TXT theo lượt nói,
+  SRT mỗi câu một cue; tên file tải về giữ tiếng Việt (`filename*=UTF-8''…`) kèm tên ASCII dự phòng.
+- Dọn `UPLOAD_DIR` (không còn dùng từ khi file gốc lưu trên S3).
+- Test: 144 test qua.
+
+### Quyết định
+- Kích thước file cho `Range` lấy từ `meetings.size_bytes` (ghi lúc upload), không gọi `HEAD` lên S3.
+
+### Kiểm tra thật trên stack
+- Audio tập 4 (46 MB) qua SeaweedFS: không `Range` → 200 cả file; `bytes=0-1023`, `bytes=46000000-`, `bytes=-500`
+  → 206 đúng `Content-Range`; ngoài file → 416; byte trả về khớp file gốc.
+- `sample_meeting.wav` xử lý lại: 8 lượt nói, 10 câu; đổi tên `SPEAKER_00` → "Chủ trì" hiện ngay trong TXT;
+  SRT tải về đúng tên file, mỗi câu một cue.
+- 5 cuộc họp cũ (chưa có câu) đã xoá và upload lại để có `utterances`.
+
+### Việc còn dở
+- Gửi JSON có dấu tiếng Việt bằng `curl -d` trong Git Bash bị hỏng mã hoá (lỗi phía shell, API đúng) —
+  dùng `--data-binary @file.json` khi thử tay.
