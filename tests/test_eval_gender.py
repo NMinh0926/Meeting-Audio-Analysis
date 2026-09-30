@@ -1,5 +1,6 @@
 """Tests for the pure helpers of scripts/eval_gender.py (no network, no models)."""
-from scripts.eval_gender import accuracy_table, select_balanced, speaker_for_span
+from scripts.eval_gender import (accuracy_table, attribution_accuracy, mixed_utterances, select_balanced,
+                                 speaker_for_span)
 
 
 def test_select_balanced_caps_each_gender_and_skips_duplicates():
@@ -32,3 +33,20 @@ def test_accuracy_table_counts_and_thresholds():
     assert "| 0.0 | 3/4 | 66.7% |" in table
     assert "| 0.6 | 2/4 | 100.0% |" in table
     assert "| 0.9 | 1/4 | 100.0% |" in table
+
+
+SPANS = [(0.0, 5.0, "male"), (5.2, 10.0, "female")]
+
+
+def test_mixed_utterances_counts_sentences_spanning_two_speakers():
+    utterances = [(0.0, 3.0, "A"), (3.0, 6.0, "A"), (6.0, 10.0, "B"), (4.9, 5.3, "B")]
+    # (3, 6) holds 2 s of the first clip and 0.8 s of the second; (4.9, 5.3) only brushes both.
+    assert mixed_utterances(utterances, SPANS) == 1
+
+
+def test_attribution_accuracy_weights_by_time():
+    assert attribution_accuracy([(0.0, 5.0, "A"), (5.2, 10.0, "B")], SPANS) == 1.0
+    # The second clip's first 0.8 s is labelled A, the first clip's owner.
+    utterances = [(0.0, 6.0, "A"), (6.0, 10.0, "B")]
+    assert attribution_accuracy(utterances, SPANS) == (5.0 + 4.0) / (5.0 + 0.8 + 4.0)
+    assert attribution_accuracy([], SPANS) == 0.0

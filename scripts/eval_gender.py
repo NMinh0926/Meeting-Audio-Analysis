@@ -155,8 +155,8 @@ def run_clips() -> None:
     print(accuracy_table(results))
 
 
-def build_meeting(clips: list[Clip], destination: Path) -> list[tuple[float, float, str]]:
-    """Concatenate 16 kHz mono clips with short silences; return (start, end, gender) per clip."""
+def build_meeting(clips: list[Clip], destination: Path, gap: float = SILENCE_SECONDS) -> list[tuple[float, float, str]]:
+    """Concatenate 16 kHz mono clips with `gap` seconds of silence; return (start, end, gender) per clip."""
     from pydub import AudioSegment
 
     audio = AudioSegment.silent(duration=int(SILENCE_SECONDS * 1000), frame_rate=16000)
@@ -166,7 +166,7 @@ def build_meeting(clips: list[Clip], destination: Path) -> list[tuple[float, flo
         start = len(audio) / 1000
         audio += part
         spans.append((start, len(audio) / 1000, clip.gender))
-        audio += AudioSegment.silent(duration=int(SILENCE_SECONDS * 1000), frame_rate=16000)
+        audio += AudioSegment.silent(duration=int(gap * 1000), frame_rate=16000)
     audio.export(destination, format="wav")
     return spans
 
@@ -181,7 +181,30 @@ def speaker_for_span(turns: list[tuple[float, float, str]], start: float, end: f
     return max(overlap, key=overlap.get) if overlap else None
 
 
-def run_meetings(count: int, speakers_per_meeting: int) -> None:
+def mixed_utterances(utterances: list[tuple[float, float, str]], spans: list[tuple[float, float, str]],
+                     tolerance: float = 0.3) -> int:
+    """Utterances that contain more than `tolerance` seconds of two or more different clips (speakers)."""
+    mixed = 0
+    for start, end, _ in utterances:
+        touched = sum(min(end, span_end) - max(start, span_start) > tolerance for span_start, span_end, _ in spans)
+        mixed += touched > 1
+    return mixed
+
+
+def attribution_accuracy(utterances: list[tuple[float, float, str]], spans: list[tuple[float, float, str]]) -> float:
+    """Share of transcribed speech (by time) labelled with the speaker that holds most of its clip."""
+    right = total = 0.0
+    for span_start, span_end, _ in spans:
+        owner = speaker_for_span(utterances, span_start, span_end)
+        for start, end, speaker in utterances:
+            shared = min(end, span_end) - max(start, span_start)
+            if shared > 0:
+                total += shared
+                right += shared if speaker == owner else 0.0
+    return right / total if total else 0.0
+
+
+def run_meetings(count: int, speakers_per_meeting: int, gap: float) -> None:
     from app.services.pipeline import analyze_meeting
 
     clips = load_manifest()
@@ -190,17 +213,26 @@ def run_meetings(count: int, speakers_per_meeting: int) -> None:
     results = []
     out_dir = DATA_DIR / "meetings"
     out_dir.mkdir(exist_ok=True)
-    print("| Meeting | Clips (M/F) | Speakers found | Gender correct |")
-    print("|---|---|---|---|")
+    print(f"gap between speakers: {gap}s\n")
+    print("| Meeting | Clips (M/F) | Speakers found | Gender correct | Mixed utterances | Attribution |")
+    print("|---|---|---|---|---|---|")
+    mixed_total = utterance_total = 0
+    attribution_scores = []
     for index in range(count):
         half = speakers_per_meeting // 2
         chosen = rng.sample(by_gender["male"], half) + rng.sample(by_gender["female"], speakers_per_meeting - half)
         rng.shuffle(chosen)
         path = out_dir / f"meeting_{index}.wav"
-        spans = build_meeting(chosen, path)
+        spans = build_meeting(chosen, path, gap)
         result = analyze_meeting(path)
         turns = [(t.start, t.end, t.speaker) for t in result.segments]
         gender_of = {t.speaker: (t.gender, t.gender_confidence) for t in result.segments}
+        utterances = [(u.start, u.end, t.speaker) for t in result.segments for u in t.utterances]
+        mixed = mixed_utterances(utterances, spans)
+        attribution = attribution_accuracy(utterances, spans)
+        mixed_total += mixed
+        utterance_total += len(utterances)
+        attribution_scores.append(attribution)
         correct = 0
         for start, end, truth in spans:
             speaker = speaker_for_span(turns, start, end)
@@ -208,8 +240,9 @@ def run_meetings(count: int, speakers_per_meeting: int) -> None:
             results.append((truth, predicted, confidence))
             correct += predicted == truth
         print(f"| {path.name} | {half}/{speakers_per_meeting - half} | {result.speaker_count} "
-              f"| {correct}/{len(spans)} |", flush=True)
-    print()
+              f"| {correct}/{len(spans)} | {mixed}/{len(utterances)} | {attribution:.1%} |", flush=True)
+    print(f"\nMixed utterances: {mixed_total}/{utterance_total}; "
+          f"mean attribution: {sum(attribution_scores) / len(attribution_scores):.1%}\n")
     print(accuracy_table(results))
 
 
@@ -222,6 +255,7 @@ def main() -> int:
     meetings_parser = commands.add_parser("meetings")
     meetings_parser.add_argument("--count", type=int, default=6)
     meetings_parser.add_argument("--speakers", type=int, default=4)
+    meetings_parser.add_argument("--gap", type=float, default=SILENCE_SECONDS, help="Silence between speakers (s)")
     args = parser.parse_args()
 
     if args.command == "fetch":
@@ -229,7 +263,7 @@ def main() -> int:
     elif args.command == "clips":
         run_clips()
     else:
-        run_meetings(args.count, args.speakers)
+        run_meetings(args.count, args.speakers, args.gap)
     return 0
 
 
