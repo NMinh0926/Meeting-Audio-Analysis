@@ -237,3 +237,11 @@ chờ bạn đồng ý mới sửa.
 ### Việc còn dở / ý tưởng
 - Trọng số 0.6/0.4 chưa được kiểm chứng: chưa có giọng nói tiếng Việt gắn nhãn cảm xúc. Muốn chính xác hơn:
   gắn nhãn ~50 lượt nói thật rồi chỉnh trọng số theo đó.
+
+### Sửa sau phản hồi (2026-10-01)
+- "Năm." (0.28 s) bị gắn tức giận: lượt quá ngắn để nghe giọng giờ tính phía giọng là bình thường (15/15 lượt
+  ngắn → bình thường, trước đó 6 lượt "tức giận" sai).
+- "3.000 đấy là một kỳ hay là một năm?" (2:53) bị gắn buồn: cảm xúc phải hơn "bình thường" ≥ 0.15
+  (`EMOTION_MIN_MARGIN`); gắn nhầm trên FLEURS 8.3 % → 5.0 %. Đã tính lại cảm xúc cho mọi cuộc họp.
+- Tự cuộn: người dùng tự cuộn làm câu đang phát ra khỏi màn hình thì tạm dừng; nút "Về câu đang phát" cuộn về
+  và tự cuộn tiếp. Kiểm tra bằng Chromium headless. Test: backend 221, frontend 88.

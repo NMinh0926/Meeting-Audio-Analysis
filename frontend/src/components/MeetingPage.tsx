@@ -4,6 +4,7 @@ import { audioUrl, exportUrl, getMeeting, getTranscript, renameSpeaker } from '.
 import type { ExportFormat, MeetingDetail, Speaker, Transcript } from '../api/types';
 import { formatClock, stageLabel } from '../lib/format';
 import { SKIP_SECONDS, shortcutFor } from '../lib/player';
+import { SCROLL_KEYS, USER_SCROLL_MS, isOutOfView } from '../lib/scroll';
 import { findActiveIndex, flattenUtterances, sentenceStart, talkTime } from '../lib/transcript';
 import { usePolling } from '../lib/usePolling';
 import AudioPlayer, { useAudioPlayer } from './AudioPlayer';
@@ -75,6 +76,47 @@ export default function MeetingPage({ id }: { id: string }) {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
+  // Following pauses when the user scrolls the playing sentence out of view; "Về câu đang phát" resumes it.
+  // Only scrolls right after the user's own wheel, touch, scroll key or scrollbar drag count, so the page's
+  // own smooth scrolling never pauses it.
+  const header = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (!follow) return;
+    let userAt = Number.NEGATIVE_INFINITY;
+    let draggingScrollbar = false;
+    const markUser = () => {
+      userAt = performance.now();
+    };
+    const onKey = (e: KeyboardEvent) => SCROLL_KEYS.has(e.key) && markUser();
+    const onPointerDown = (e: PointerEvent) => {
+      draggingScrollbar = e.clientX >= document.documentElement.clientWidth;
+    };
+    const onPointerUp = () => {
+      draggingScrollbar = false;
+    };
+    const onScroll = () => {
+      if (!draggingScrollbar && performance.now() - userAt > USER_SCROLL_MS) return;
+      const sentence = document.querySelector('[data-active]');
+      if (!sentence) return;
+      const viewTop = header.current?.getBoundingClientRect().bottom ?? 0;
+      if (isOutOfView(sentence.getBoundingClientRect(), viewTop, window.innerHeight)) setFollow(false);
+    };
+    window.addEventListener('wheel', markUser, { passive: true });
+    window.addEventListener('touchmove', markUser, { passive: true });
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('pointerdown', onPointerDown);
+    window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      window.removeEventListener('wheel', markUser);
+      window.removeEventListener('touchmove', markUser);
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('pointerdown', onPointerDown);
+      window.removeEventListener('pointerup', onPointerUp);
+      window.removeEventListener('scroll', onScroll);
+    };
+  }, [follow]);
+
   async function rename(speaker: Speaker, name: string) {
     try {
       const updated = await renameSpeaker(id, speaker.id, name);
@@ -92,7 +134,7 @@ export default function MeetingPage({ id }: { id: string }) {
   return (
     <div className="min-h-full">
       {/* Sticky so the way back and the player stay in reach anywhere in a long transcript. */}
-      <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/90 shadow-sm backdrop-blur">
+      <header ref={header} className="sticky top-0 z-20 border-b border-slate-200 bg-white/90 shadow-sm backdrop-blur">
         <div className="mx-auto max-w-6xl space-y-2 px-4 py-2.5">
           <div className="flex items-center gap-3">
             <a
@@ -209,9 +251,9 @@ export default function MeetingPage({ id }: { id: string }) {
       {transcript && !follow && active && (
         <button
           type="button"
-          onClick={() =>
-            document.querySelector('[data-active]')?.scrollIntoView({ block: 'center', behavior: 'smooth' })
-          }
+          // Turning following back on scrolls to the playing sentence (TranscriptView).
+          onClick={() => setFollow(true)}
+          title="Cuộn tới câu đang phát và tự cuộn tiếp"
           className="fixed right-6 bottom-6 z-20 inline-flex items-center gap-2 rounded-full bg-brand-600 px-4 py-2.5 text-sm font-medium text-white shadow-lg hover:bg-brand-700"
         >
           <CrosshairIcon className="h-4 w-4" />
