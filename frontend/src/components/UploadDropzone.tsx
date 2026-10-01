@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 
 import { uploadMeetings } from '../api/client';
+import { UploadIcon } from './icons';
 import { ErrorNote } from './ui';
 
 const ACCEPTED = ['.wav', '.mp3', '.m4a'];
@@ -51,12 +52,15 @@ export default function UploadDropzone({ onUploaded }: { onUploaded: () => void 
           setDragging(false);
           void upload(e.dataTransfer.files);
         }}
-        className={`flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed px-6 py-8 text-center transition ${
-          dragging ? 'border-brand-500 bg-brand-50' : 'border-slate-300 bg-white hover:border-brand-500'
+        className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-6 py-8 text-center transition ${
+          dragging ? 'border-brand-500 bg-brand-50' : 'border-slate-300 bg-white hover:border-brand-500 hover:bg-brand-50/40'
         }`}
       >
         {progress === null ? (
           <>
+            <span className="mb-3 inline-flex h-11 w-11 items-center justify-center rounded-full bg-brand-50 text-brand-600">
+              <UploadIcon className="h-5 w-5" />
+            </span>
             <p className="font-medium">Kéo thả file ghi âm vào đây hoặc bấm để chọn</p>
             <p className="mt-1 text-sm text-slate-500">WAV, MP3, M4A · chọn được nhiều file một lúc</p>
           </>

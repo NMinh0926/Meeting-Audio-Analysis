@@ -36,37 +36,6 @@ export function GenderBadge({ gender, confidence }: { gender: string; confidence
   );
 }
 
-export function Button({
-  children,
-  onClick,
-  disabled,
-  variant = 'secondary',
-  title,
-}: {
-  children: ReactNode;
-  onClick?: () => void;
-  disabled?: boolean;
-  variant?: 'primary' | 'secondary' | 'danger';
-  title?: string;
-}) {
-  const styles = {
-    primary: 'bg-brand-600 text-white hover:bg-brand-700',
-    secondary: 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50',
-    danger: 'border border-red-200 bg-white text-red-700 hover:bg-red-50',
-  }[variant];
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      title={title}
-      className={`rounded-md px-3 py-1.5 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50 ${styles}`}
-    >
-      {children}
-    </button>
-  );
-}
-
 export function ErrorNote({ message }: { message: string | null }) {
   if (!message) return null;
   return <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{message}</p>;
@@ -86,13 +55,12 @@ export function speakerColor(index: number): string {
   return SPEAKER_STYLES[index % SPEAKER_STYLES.length]!.text;
 }
 
-export function SpeakerAvatar({ name, index, size = 'md' }: { name: string; index: number; size?: 'sm' | 'md' }) {
+export function SpeakerAvatar({ name, index }: { name: string; index: number }) {
   const style = SPEAKER_STYLES[index % SPEAKER_STYLES.length]!;
-  const box = size === 'sm' ? 'h-7 w-7 text-xs' : 'h-9 w-9 text-sm';
   return (
     <span
       aria-hidden="true"
-      className={`inline-flex shrink-0 items-center justify-center rounded-full font-semibold ${box} ${style.avatar}`}
+      className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${style.avatar}`}
     >
       {speakerInitials(name, index)}
     </span>

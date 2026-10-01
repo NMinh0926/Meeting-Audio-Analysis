@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatBytes, formatClock, genderLabel, speakerInitials, stageLabel } from './format';
+import { formatBytes, formatClock, genderLabel, genderSummary, speakerInitials, stageLabel } from './format';
 
 describe('formatClock', () => {
   it.each([
@@ -44,4 +44,13 @@ describe('speakerInitials', () => {
     ['Ê', 0, 'Ê'],
     ['   ', 4, '5'],
   ])('%j (#%s) → %s', (name, index, expected) => expect(speakerInitials(name, index)).toBe(expected));
+});
+
+describe('genderSummary', () => {
+  it.each([
+    [['male', 'female', 'male'], '2 nam · 1 nữ'],
+    [['female'], '1 nữ'],
+    [['male', 'unknown', 'other'], '1 nam · 2 không rõ'],
+    [[], ''],
+  ])('%j → %j', (genders, expected) => expect(genderSummary(genders)).toBe(expected));
 });

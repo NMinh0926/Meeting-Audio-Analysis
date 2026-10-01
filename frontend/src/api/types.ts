@@ -23,7 +23,7 @@ export interface Meeting {
 }
 
 export interface MeetingList {
-  items: Meeting[];
+  items: MeetingDetail[];
   total: number;
   limit: number;
   offset: number;

@@ -56,3 +56,17 @@ const STAGE_LABELS: Record<string, string> = {
 export function stageLabel(stage: string | null): string {
   return stage ? (STAGE_LABELS[stage] ?? stage) : '';
 }
+
+/** "2 nam · 1 nữ" style summary of who speaks; speakers of unknown gender are counted separately. */
+export function genderSummary(genders: string[]): string {
+  const male = genders.filter((g) => g === 'male').length;
+  const female = genders.filter((g) => g === 'female').length;
+  const unknown = genders.length - male - female;
+  return [
+    male > 0 && `${male} nam`,
+    female > 0 && `${female} nữ`,
+    unknown > 0 && `${unknown} không rõ`,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+}
