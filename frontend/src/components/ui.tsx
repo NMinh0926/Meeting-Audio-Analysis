@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 
 import type { MeetingStatus } from '../api/types';
-import { STATUS_LABELS, genderLabel } from '../lib/format';
+import { STATUS_LABELS, genderLabel, speakerInitials } from '../lib/format';
 
 const STATUS_STYLES: Record<MeetingStatus, string> = {
   queued: 'bg-slate-100 text-slate-700',
@@ -73,8 +73,34 @@ export function ErrorNote({ message }: { message: string | null }) {
 }
 
 // Distinct colours per speaker, in order of appearance.
-const SPEAKER_COLORS = ['text-brand-700', 'text-violet-700', 'text-orange-700', 'text-sky-700', 'text-rose-700'];
+const SPEAKER_STYLES = [
+  { text: 'text-brand-700', avatar: 'bg-brand-100 text-brand-700' },
+  { text: 'text-violet-700', avatar: 'bg-violet-100 text-violet-700' },
+  { text: 'text-orange-700', avatar: 'bg-orange-100 text-orange-700' },
+  { text: 'text-sky-700', avatar: 'bg-sky-100 text-sky-700' },
+  { text: 'text-rose-700', avatar: 'bg-rose-100 text-rose-700' },
+  { text: 'text-amber-700', avatar: 'bg-amber-100 text-amber-800' },
+];
 
 export function speakerColor(index: number): string {
-  return SPEAKER_COLORS[index % SPEAKER_COLORS.length]!;
+  return SPEAKER_STYLES[index % SPEAKER_STYLES.length]!.text;
+}
+
+export function SpeakerAvatar({ name, index, size = 'md' }: { name: string; index: number; size?: 'sm' | 'md' }) {
+  const style = SPEAKER_STYLES[index % SPEAKER_STYLES.length]!;
+  const box = size === 'sm' ? 'h-7 w-7 text-xs' : 'h-9 w-9 text-sm';
+  return (
+    <span
+      aria-hidden="true"
+      className={`inline-flex shrink-0 items-center justify-center rounded-full font-semibold ${box} ${style.avatar}`}
+    >
+      {speakerInitials(name, index)}
+    </span>
+  );
+}
+
+export function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
+  return (
+    <section className={`rounded-xl border border-slate-200 bg-white shadow-sm ${className}`}>{children}</section>
+  );
 }

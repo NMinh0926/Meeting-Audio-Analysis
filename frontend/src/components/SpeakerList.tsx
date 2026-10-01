@@ -1,15 +1,21 @@
 import { useState } from 'react';
 
 import type { Speaker } from '../api/types';
-import { GenderBadge, speakerColor } from './ui';
+import { formatClock } from '../lib/format';
+import { PencilIcon } from './icons';
+import { GenderBadge, SpeakerAvatar, speakerColor } from './ui';
 
 function SpeakerItem({
   speaker,
   index,
+  seconds,
+  share,
   onRename,
 }: {
   speaker: Speaker;
   index: number;
+  seconds: number;
+  share: number;
   onRename: (speaker: Speaker, name: string) => Promise<void>;
 }) {
   const [editing, setEditing] = useState(false);
@@ -33,52 +39,78 @@ function SpeakerItem({
   }
 
   return (
-    <li className="flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-1.5">
-      {editing ? (
-        <input
-          autoFocus
-          value={name}
-          maxLength={100}
-          disabled={saving}
-          onChange={(e) => setName(e.target.value)}
-          onBlur={() => void save()}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') void save();
-            if (e.key === 'Escape') {
-              setName(speaker.display_name);
-              setEditing(false);
-            }
-          }}
-          className="w-40 rounded border border-slate-300 px-1.5 py-0.5 text-sm"
-          aria-label="Tên người nói"
-        />
-      ) : (
-        <button
-          type="button"
-          onClick={() => setEditing(true)}
-          className={`text-sm font-semibold hover:underline ${speakerColor(index)}`}
-          title={`${speaker.label} · bấm để đổi tên`}
-        >
-          {speaker.display_name}
-        </button>
-      )}
-      <GenderBadge gender={speaker.gender} confidence={speaker.gender_confidence} />
+    <li className="flex gap-3 py-3">
+      <SpeakerAvatar name={speaker.display_name} index={index} />
+      <div className="min-w-0 flex-1">
+        {editing ? (
+          <input
+            autoFocus
+            value={name}
+            maxLength={100}
+            disabled={saving}
+            onChange={(e) => setName(e.target.value)}
+            onBlur={() => void save()}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') void save();
+              if (e.key === 'Escape') {
+                setName(speaker.display_name);
+                setEditing(false);
+              }
+            }}
+            className="w-full rounded-md border border-slate-300 px-2 py-0.5 text-sm"
+            aria-label="Tên người nói"
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={() => setEditing(true)}
+            className={`group flex max-w-full items-center gap-1 text-left text-sm font-semibold ${speakerColor(index)}`}
+            title={`${speaker.label} · bấm để đổi tên`}
+          >
+            <span className="truncate">{speaker.display_name}</span>
+            <PencilIcon className="h-3.5 w-3.5 shrink-0 opacity-0 transition group-hover:opacity-60" />
+          </button>
+        )}
+        <div className="mt-1 flex items-center gap-2">
+          <GenderBadge gender={speaker.gender} confidence={speaker.gender_confidence} />
+          <span className="text-xs text-slate-500 tabular-nums" title="Tổng thời gian nói">
+            {formatClock(seconds)} · {Math.round(share * 100)}%
+          </span>
+        </div>
+        <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-slate-100">
+          <div className="h-full rounded-full bg-slate-300" style={{ width: `${share * 100}%` }} />
+        </div>
+      </div>
     </li>
   );
 }
 
 export default function SpeakerList({
   speakers,
+  talkTime,
   onRename,
 }: {
   speakers: Speaker[];
+  /** Seconds spoken per speaker id. */
+  talkTime: Map<number, number>;
   onRename: (speaker: Speaker, name: string) => Promise<void>;
 }) {
+  const total = [...talkTime.values()].reduce((sum, s) => sum + s, 0);
   return (
-    <ul className="flex flex-wrap gap-2">
-      {speakers.map((speaker, index) => (
-        <SpeakerItem key={speaker.id} speaker={speaker} index={index} onRename={onRename} />
-      ))}
+    <ul className="divide-y divide-slate-100">
+      {speakers.map((speaker, index) => {
+        const seconds = talkTime.get(speaker.id) ?? 0;
+        return (
+          <SpeakerItem
+            key={speaker.id}
+            speaker={speaker}
+            index={index}
+            seconds={seconds}
+            share={total > 0 ? seconds / total : 0}
+            onRename={onRename}
+          />
+        );
+      })}
     </ul>
   );
 }

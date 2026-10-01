@@ -36,3 +36,24 @@ export function findActiveIndex(refs: UtteranceRef[], time: number): number {
   }
   return found;
 }
+
+/** Past this far into a sentence, "previous" goes back to its start first, like a music player. */
+export const RESTART_SECONDS = 1.5;
+
+/** Start of the sentence before or after the one playing at `time`; null when there is none. */
+export function sentenceStart(refs: UtteranceRef[], time: number, direction: 'previous' | 'next'): number | null {
+  const active = findActiveIndex(refs, time);
+  if (direction === 'next') return refs[active + 1]?.start ?? null;
+  if (active < 0) return null;
+  if (time - refs[active]!.start > RESTART_SECONDS || active === 0) return refs[active]!.start;
+  return refs[active - 1]!.start;
+}
+
+/** Seconds spoken by each speaker id, summed over their turns. */
+export function talkTime(turns: Turn[]): Map<number, number> {
+  const seconds = new Map<number, number>();
+  for (const turn of turns) {
+    seconds.set(turn.speaker_id, (seconds.get(turn.speaker_id) ?? 0) + Math.max(0, turn.end - turn.start));
+  }
+  return seconds;
+}

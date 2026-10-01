@@ -21,6 +21,19 @@ export function genderLabel(gender: string): string {
   return GENDER_LABELS[gender] ?? 'Không rõ';
 }
 
+/**
+ * Up to two letters for a speaker's avatar: the first and last words of a given name ("Nguyễn Văn An" → "NA"),
+ * or the speaker's number while it still has the automatic label ("SPEAKER_00").
+ */
+export function speakerInitials(name: string, index: number): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0 || /^SPEAKER_\d+$/.test(name.trim())) return String(index + 1);
+  const first = words[0]!;
+  const last = words[words.length - 1]!;
+  const letters = words.length > 1 ? [...first][0]! + [...last][0]! : [...first].slice(0, 2).join('');
+  return letters.toLocaleUpperCase('vi');
+}
+
 export const STATUS_LABELS: Record<MeetingStatus, string> = {
   queued: 'Đang chờ',
   processing: 'Đang xử lý',
