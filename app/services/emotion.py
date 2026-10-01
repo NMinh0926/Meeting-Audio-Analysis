@@ -121,6 +121,10 @@ def predict_turn_emotions(normalized_audio_path: str | Path, turns: Sequence[Spe
             try:
                 segment = samples[int(turn.start * SAMPLE_RATE):int(turn.end * SAMPLE_RATE)]
                 voice = voice_scores(segment, settings.EMOTION_CHUNK_SECONDS, settings.EMOTION_MIN_SECONDS)
+                if voice is None:
+                    # Too short to hear ("Năm.", "Cái"): a word alone is not enough for the text model,
+                    # which called 6 of 15 such turns angry, so the silent voice side votes neutral.
+                    voice = {e: float(e == "neutral") for e in EMOTIONS}
             except Exception as e:
                 logger.warning(f"Voice emotion failed at {turn.start:.1f}-{turn.end:.1f}s: {e}")
         try:

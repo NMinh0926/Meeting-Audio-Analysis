@@ -248,3 +248,14 @@ def test_emotion_names_in_vietnamese(emotion, name):
 def test_voice_disgust_counts_as_neutral():
     # emotion2vec+ hears "disgusted" in calm Vietnamese speech (docs/benchmarks/2026-10-01-emotion.md)
     assert to_emotions({"厌恶/disgusted": 1.0}, VOICE_LABELS) == one_hot("neutral")
+
+
+def test_a_turn_too_short_to_hear_stays_neutral_whatever_the_word(voice_model, text_classifier, tmp_path):
+    audio = tmp_path / "normalized.wav"
+    _wav(audio, [(2.0, 0.5)])
+
+    # 0.3 s: below EMOTION_MIN_SECONDS, so no voice piece; the text alone says happy at 0.9
+    results = emotion.predict_turn_emotions(audio, [_turn(1.0, 1.3, "vui")])
+
+    assert voice_model.pieces == []
+    assert [(r.sentiment, r.confidence) for r in results] == [("neutral", pytest.approx(0.64))]
