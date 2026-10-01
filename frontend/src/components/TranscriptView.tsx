@@ -2,7 +2,7 @@ import { memo, useEffect, useRef } from 'react';
 
 import type { Speaker, Turn } from '../api/types';
 import { formatClock } from '../lib/format';
-import { GenderBadge, SpeakerAvatar, speakerColor } from './ui';
+import { EmotionBadge, GenderBadge, SpeakerAvatar, speakerColor } from './ui';
 
 interface TurnProps {
   turn: Turn;
@@ -30,6 +30,10 @@ const TurnView = memo(function TurnView({ turn, speaker, speakerIndex, activeUtt
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <span className={`text-sm font-semibold ${speakerColor(speakerIndex)}`}>{name}</span>
           {speaker && <GenderBadge gender={speaker.gender} />}
+          <EmotionBadge
+            emotion={turn.sentiment}
+            title={`Cảm xúc của lượt nói · độ tin cậy ${Math.round(turn.sentiment_confidence * 100)}%`}
+          />
           <button
             type="button"
             onClick={() => onSeek(turn.start, true)}

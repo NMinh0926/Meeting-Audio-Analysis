@@ -70,3 +70,17 @@ export function genderSummary(genders: string[]): string {
     .filter(Boolean)
     .join(' · ');
 }
+
+const EMOTION_LABELS: Record<string, string> = {
+  neutral: 'Bình thường',
+  happy: 'Vui vẻ',
+  sad: 'Buồn',
+  angry: 'Tức giận',
+  surprised: 'Ngạc nhiên',
+  fearful: 'Lo lắng',
+};
+
+/** Vietnamese name of an emotion; anything unknown reads as neutral, like the exports. */
+export function emotionLabel(emotion: string): string {
+  return EMOTION_LABELS[emotion] ?? EMOTION_LABELS.neutral!;
+}

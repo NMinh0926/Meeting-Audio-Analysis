@@ -2,6 +2,7 @@
 
 export type MeetingStatus = 'queued' | 'processing' | 'done' | 'failed';
 export type Gender = 'male' | 'female' | 'unknown';
+export type Emotion = 'neutral' | 'happy' | 'sad' | 'angry' | 'surprised' | 'fearful';
 export type ExportFormat = 'txt' | 'srt' | 'json';
 
 export interface Meeting {
@@ -53,15 +54,22 @@ export interface Turn {
   start: number;
   end: number;
   text: string;
-  sentiment: string;
+  /** Emotion of the turn (field name kept from the first API version). */
+  sentiment: Emotion | string;
   sentiment_confidence: number;
   utterances: Utterance[];
+}
+
+export interface TranscriptSpeaker extends Speaker {
+  /** Emotion filling most of the speaker's talk time, and each emotion's share of it (largest first). */
+  emotion: Emotion | string;
+  emotion_shares: Record<string, number>;
 }
 
 export interface Transcript {
   meeting_id: string;
   filename: string;
   duration_seconds: number | null;
-  speakers: Speaker[];
+  speakers: TranscriptSpeaker[];
   turns: Turn[];
 }

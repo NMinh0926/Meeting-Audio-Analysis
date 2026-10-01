@@ -78,7 +78,8 @@ export default function MeetingPage({ id }: { id: string }) {
   async function rename(speaker: Speaker, name: string) {
     try {
       const updated = await renameSpeaker(id, speaker.id, name);
-      const replace = (list: Speaker[]) => list.map((s) => (s.id === updated.id ? updated : s));
+      // Merge: the rename response has no emotion fields, which only the transcript carries.
+      const replace = <T extends Speaker>(list: T[]) => list.map((s) => (s.id === updated.id ? { ...s, ...updated } : s));
       setTranscript((t) => t && { ...t, speakers: replace(t.speakers) });
       setMeeting((m) => m && { ...m, speakers: replace(m.speakers) });
       setError(null);

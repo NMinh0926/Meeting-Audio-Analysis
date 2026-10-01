@@ -1,9 +1,9 @@
 import { useState } from 'react';
 
-import type { Speaker } from '../api/types';
+import type { Speaker, TranscriptSpeaker } from '../api/types';
 import { formatClock } from '../lib/format';
 import { PencilIcon } from './icons';
-import { GenderBadge, SpeakerAvatar, speakerColor } from './ui';
+import { EmotionBadge, EmotionBar, GenderBadge, SpeakerAvatar, speakerColor } from './ui';
 
 function SpeakerItem({
   speaker,
@@ -12,7 +12,7 @@ function SpeakerItem({
   share,
   onRename,
 }: {
-  speaker: Speaker;
+  speaker: TranscriptSpeaker;
   index: number;
   seconds: number;
   share: number;
@@ -71,14 +71,15 @@ function SpeakerItem({
             <PencilIcon className="h-3.5 w-3.5 shrink-0 opacity-0 transition group-hover:opacity-60" />
           </button>
         )}
-        <div className="mt-1 flex items-center gap-2">
+        <div className="mt-1 flex flex-wrap items-center gap-1.5">
           <GenderBadge gender={speaker.gender} confidence={speaker.gender_confidence} />
-          <span className="text-xs text-slate-500 tabular-nums" title="Tổng thời gian nói">
-            {formatClock(seconds)} · {Math.round(share * 100)}%
-          </span>
+          <EmotionBadge emotion={speaker.emotion} title="Cảm xúc chiếm nhiều thời gian nói nhất" />
         </div>
-        <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-slate-100">
-          <div className="h-full rounded-full bg-slate-300" style={{ width: `${share * 100}%` }} />
+        <div className="mt-1.5 text-xs text-slate-500 tabular-nums" title="Tổng thời gian nói">
+          {formatClock(seconds)} · {Math.round(share * 100)}% thời gian nói
+        </div>
+        <div className="mt-1">
+          <EmotionBar shares={speaker.emotion_shares} widthPercent={share * 100} />
         </div>
       </div>
     </li>
@@ -90,7 +91,7 @@ export default function SpeakerList({
   talkTime,
   onRename,
 }: {
-  speakers: Speaker[];
+  speakers: TranscriptSpeaker[];
   /** Seconds spoken per speaker id. */
   talkTime: Map<number, number>;
   onRename: (speaker: Speaker, name: string) => Promise<void>;

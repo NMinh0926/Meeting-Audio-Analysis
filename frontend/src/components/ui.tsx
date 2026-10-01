@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 
 import type { MeetingStatus } from '../api/types';
-import { STATUS_LABELS, genderLabel, speakerInitials } from '../lib/format';
+import { STATUS_LABELS, emotionLabel, genderLabel, speakerInitials } from '../lib/format';
 
 const STATUS_STYLES: Record<MeetingStatus, string> = {
   queued: 'bg-slate-100 text-slate-700',
@@ -33,6 +33,44 @@ export function GenderBadge({ gender, confidence }: { gender: string; confidence
       {genderLabel(gender)}
       {known && confidence !== undefined ? ` · ${Math.round(confidence * 100)}%` : ''}
     </span>
+  );
+}
+
+const EMOTION_STYLES: Record<string, { badge: string; bar: string }> = {
+  neutral: { badge: 'bg-slate-100 text-slate-600', bar: 'bg-slate-300' },
+  happy: { badge: 'bg-amber-100 text-amber-800', bar: 'bg-amber-400' },
+  sad: { badge: 'bg-blue-100 text-blue-800', bar: 'bg-blue-400' },
+  angry: { badge: 'bg-red-100 text-red-700', bar: 'bg-red-400' },
+  surprised: { badge: 'bg-violet-100 text-violet-700', bar: 'bg-violet-400' },
+  fearful: { badge: 'bg-teal-100 text-teal-800', bar: 'bg-teal-400' },
+};
+
+const emotionStyle = (emotion: string) => EMOTION_STYLES[emotion] ?? EMOTION_STYLES.neutral!;
+
+export function EmotionBadge({ emotion, title }: { emotion: string; title?: string }) {
+  return (
+    <span
+      className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${emotionStyle(emotion).badge}`}
+      title={title}
+    >
+      {emotionLabel(emotion)}
+    </span>
+  );
+}
+
+/** One bar split by each emotion's share of the speaker's talk time. */
+export function EmotionBar({ shares, widthPercent }: { shares: Record<string, number>; widthPercent: number }) {
+  const title = Object.entries(shares)
+    .map(([emotion, share]) => `${emotionLabel(emotion)} ${Math.round(share * 100)}%`)
+    .join(' · ');
+  return (
+    <div className="h-1.5 overflow-hidden rounded-full bg-slate-100" title={title}>
+      <div className="flex h-full" style={{ width: `${widthPercent}%` }}>
+        {Object.entries(shares).map(([emotion, share]) => (
+          <div key={emotion} className={`h-full ${emotionStyle(emotion).bar}`} style={{ width: `${share * 100}%` }} />
+        ))}
+      </div>
+    </div>
   );
 }
 
