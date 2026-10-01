@@ -162,3 +162,28 @@ chờ bạn đồng ý mới sửa.
 - Test: vitest 30 test (định dạng, tìm câu đang phát, route, lỗi API); typecheck + test chạy trong build Docker.
 - Kiểm tra bằng Chromium headless (Playwright trong container): bấm câu #45 (165.8 s) → audio 167.1 s sau
   1.5 s phát, câu được tô sáng, không lỗi console.
+
+## Giai đoạn 5 — Tăng tốc và benchmark (2026-10-01) — xong
+
+### Đã làm
+- **Lỗi hết bộ nhớ GPU**: sau vài job, Whisper báo `CUDA out of memory` (3/8 job lỗi) vì PyTorch giữ tới
+  9.9 GB cache sau bước tách người nói (Windows tràn sang RAM → chậm dần, rồi CTranslate2 hết chỗ).
+  Sửa: `torch.cuda.empty_cache()` trước chép lời và sau tách người nói / giới tính (`app/core/gpu.py`);
+  model cảm xúc chạy trên CPU (`SENTIMENT_DEVICE`, giữ thêm ~540 MB GPU nếu để trên GPU).
+  8 job liên tiếp: 0 lỗi, bộ nhớ ổn định 1.3 GB (`docs/benchmarks/2026-10-01-gpu-memory.md`).
+- **Câu trả lời của kế hoạch**:
+  - File 1 giờ ≈ **6.5 phút** (0.106 × độ dài; chép lời ~45–50 %, tách người nói ~43 %).
+  - Tải: 10 file gửi song song → upload 4.5 s, 0 lỗi, mỗi job 5 phút mất 71 s đều đặn, xong cả 10 sau
+    12 phút 31 s; API vẫn 10–40 ms. Máy xử lý ~4 giờ audio ngắn hoặc ~9 giờ audio dài mỗi giờ; vượt mức đó
+    thì hàng đợi dài dần (`docs/benchmarks/2026-10-01-load.md`).
+- Thử và **không áp dụng** (`docs/benchmarks/2026-10-01-diarization-batching.md`):
+  - Hạ ngưỡng gộp người nói pyannote: tách đúng hơn ở cuộc họp ghép nhưng từ 0.60 tách thừa podcast thật.
+  - `BatchedInferencePipeline`: chép lời nhanh 2.5–2.8× nhưng mất 2–4/52 câu với mọi cấu hình VAD.
+- Script: `scripts/bench_memory.py`. Test: 182 test qua (thêm test dọn bộ nhớ, thứ tự gọi, thiết bị
+  model cảm xúc — test này trước đó lỡ nạp model thật, đã sửa bằng module giả).
+
+### Việc còn dở / ý tưởng
+- Cho người dùng nhập số người nói (pyannote `num_speakers`) khi biết trước — cách chắc nhất để không gộp
+  hai giọng giống nhau.
+- Cảm xúc chưa được đánh giá; tách người nói vẫn gộp giọng ngắn cùng giới.
+- `CLAUDE.md` còn dòng LLM/Ollama/PDF — chờ bạn đồng ý mới sửa.
