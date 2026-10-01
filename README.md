@@ -4,7 +4,7 @@ Hệ thống xử lý ghi âm cuộc họp tiếng Việt: tải file lên và n
 người đó nam hay nữ, cảm xúc từng lượt nói; xem trên web (bấm câu để nghe đúng chỗ đó) và xuất TXT/SRT/JSON.
 
 Dưới đây là hướng dẫn cài đặt từng bước để chạy trên máy của bạn, kể cả khi chưa từng dùng Docker.
-Các bước cho **Windows 10/11** đã được thử từ một bản clone mới với dữ liệu trống. Phần Linux ở cuối chưa được thử.
+Các bước dành cho **Windows 10/11** và đã được thử từ một bản clone mới với dữ liệu trống.
 
 **Tóm tắt thời gian và dung lượng**
 
@@ -23,7 +23,7 @@ Các bước cho **Windows 10/11** đã được thử từ một bản clone m�
 | Card đồ hoạ | **NVIDIA, ≥ 4 GB VRAM** | Không chạy được trên card AMD/Intel hay chỉ CPU với cấu hình hiện tại |
 | RAM | 16 GB | Máy thử: 16 GB, Docker được cấp 8 GB |
 | Ổ đĩa trống | ~25 GB | Image + model + dữ liệu |
-| Hệ điều hành | Windows 10 (21H2+) / 11 64-bit | hoặc Linux 64-bit (xem cuối trang) |
+| Hệ điều hành | Windows 10 (21H2+) / 11 64-bit | Máy thử: Windows 11 |
 
 Xem card đồ hoạ: bấm `Ctrl + Shift + Esc` → **Performance** (Hiệu suất) → **GPU**: tên phải có chữ *NVIDIA*
 và **Dedicated GPU memory** từ 4 GB trở lên.
@@ -203,18 +203,48 @@ Tài liệu API (Swagger): http://127.0.0.1:8001/docs.
 
 Vẫn không được: chạy `docker compose logs --tail=200 api worker` và gửi kèm phần lỗi khi hỏi.
 
-## Linux (chưa thử)
+## Kết quả đo
 
-Trên Ubuntu 22.04/24.04, thay bước 2 bằng:
+Đo trên laptop RTX 3050 Ti 4 GB; cách đo và số liệu đầy đủ trong [`docs/benchmarks/`](docs/benchmarks/).
 
-1. Driver NVIDIA: `sudo ubuntu-drivers install`, khởi động lại, kiểm tra `nvidia-smi`.
-2. Docker Engine và Compose: theo https://docs.docker.com/engine/install/ubuntu/.
-3. NVIDIA Container Toolkit (cho Docker dùng GPU): theo
-   https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html, rồi
-   `sudo nvidia-ctk runtime configure --runtime=docker && sudo systemctl restart docker`.
-4. Kiểm tra: `docker run --rm --gpus all nvidia/cuda:12.6.3-base-ubuntu24.04 nvidia-smi`.
+| Hạng mục | Kết quả |
+|---|---|
+| Chép lời (tỉ lệ sai chữ, 120 câu đọc FLEURS tiếng Việt) | 5.9 % |
+| Nam / nữ (240 giọng FLEURS) | 239/240 đúng, 0 nhầm giới |
+| Cảm xúc từ chữ (tập test UIT-VSMEC) | 68 % |
+| Gắn nhầm cảm xúc trên giọng đọc bình thản | 5 % |
+| Tốc độ | ~7 phút cho 1 giờ ghi âm |
+| Bộ nhớ GPU | ổn định ~2 GB giữa các job |
 
-Các bước 3–8 giống Windows, trừ: `cp .env.example .env`, sửa bằng `nano .env`, và dùng `curl` thay `curl.exe`.
+## Kiến trúc
+
+```
+Trình duyệt ──► frontend (React, nginx :8081) ──/api──► api (FastAPI :8001)
+                                                     │            │
+                                               PostgreSQL     SeaweedFS (S3)
+                                             (job, kết quả)   (file ghi âm gốc)
+                                                     ▲
+                                 worker (GPU, xử lý 1 file một lúc theo hàng đợi)
+```
+
+Worker xử lý mỗi file qua các bước: chuẩn hoá audio 16 kHz → chép lời (faster-whisper `large-v3-turbo`) →
+tách người nói (pyannote) → gán người nói theo từng từ → gộp lượt nói → giới tính mỗi người (ECAPA-TDNN) →
+cảm xúc mỗi lượt (giọng emotion2vec+ kết hợp chữ PhoBERT).
+
+## Cấu hình
+
+Các giá trị chỉnh trong `.env` (sau khi sửa, chạy `docker compose up -d --force-recreate api worker`):
+
+| Biến | Mặc định | Ý nghĩa |
+|---|---|---|
+| `HF_TOKEN` | — | Token Hugging Face (bắt buộc) |
+| `MAX_UPLOAD_MB` | `500` | Dung lượng tối đa mỗi file tải lên |
+| `GENDER_MALE_THRESHOLD` | `0.2` | Ngưỡng xác suất để kết luận giọng nam |
+| `GENDER_MIN_CONFIDENCE` | `0.55` | Dưới mức này ghi giới tính "Không rõ" |
+| `EMOTION_VOICE_WEIGHT` | `0.6` | Tỉ trọng giọng nói so với nội dung khi xét cảm xúc |
+| `EMOTION_MIN_MARGIN` | `0.15` | Cảm xúc phải hơn "bình thường" bao nhiêu mới được gắn |
+
+Danh sách đầy đủ: [`app/core/config.py`](app/core/config.py).
 
 ## Ghi nguồn
 
