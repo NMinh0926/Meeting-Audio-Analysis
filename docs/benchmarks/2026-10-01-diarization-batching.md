@@ -44,6 +44,6 @@ More sensitive VAD settings, batch 8 (missed clips over all 52):
 | threshold 0.25, min silence 500 ms, pad 600 ms | 45 | 5.8% | 3/52 |
 | threshold 0.20, min silence 500 ms, pad 800 ms | 45 | 6.0% | 4/52 |
 
-Decision: **keep sequential decoding**. Batching is 2.5–2.8× faster on transcription (≈ 25 % of a long
-job) with the same WER, but it drops whole sentences whatever the VAD settings, the same failure that
+Decision: **keep sequential decoding**. Batching is 2.5–2.8× faster on transcription (≈ 45 % of a long
+job, so roughly a third off the total) with the same WER, but it drops whole sentences whatever the VAD settings, the same failure that
 ruled out the VAD filter. Losing speech is worse than the extra ~70 s per 30 minutes of audio.
