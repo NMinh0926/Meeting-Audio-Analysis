@@ -18,9 +18,6 @@ x-app: &app
     # The api server itself never loads a model, so it holds no GPU memory.
     DEVICE: cuda
     COMPUTE_TYPE: int8_float16
-  # Ollama runs on the Windows host, not in a container.
-  extra_hosts:
-    - "host.docker.internal:host-gateway"
   volumes:
     - model_cache:/app/.cache
   shm_size: 1gb

@@ -3,7 +3,7 @@
 Uses the MMS Vietnamese TTS model (facebook/mms-tts-vie). Different "speakers" are made by
 pitch/tempo shifting the same voice, which is enough for a pipeline smoke test and gives a
 ground truth for transcription/diarization checks. Real recordings are still needed to judge
-summary quality.
+recognition quality on natural speech.
 
 Run inside the container:
     docker compose run --rm -v "${PWD}:/app" api python -m scripts.make_sample_meeting
