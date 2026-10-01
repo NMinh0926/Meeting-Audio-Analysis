@@ -122,7 +122,7 @@ class MeetingDetail(MeetingOut):
 
 
 class MeetingList(BaseModel):
-    items: list[MeetingOut]
+    items: list[MeetingDetail]
     total: int
     limit: int
     offset: int

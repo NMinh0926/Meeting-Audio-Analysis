@@ -71,3 +71,14 @@ def test_rename_speaker_of_another_meeting_is_404(client, done_meeting, db_sessi
     assert response.status_code == 404
     db_session.expire_all()
     assert db_session.get(Speaker, other.speakers[0].id).display_name == "SPEAKER_00"
+
+
+def test_list_includes_speakers_with_genders(client, done_meeting):
+    client.post("/api/v1/meetings", files={"files": ("new.wav", b"RIFF" + b"\0" * 64, "audio/wav")})
+
+    items = client.get("/api/v1/meetings").json()["items"]
+
+    assert [m["filename"] for m in items] == ["new.wav", "Họp tuần 12.mp3"]
+    assert items[0]["speakers"] == []
+    assert [(s["label"], s["gender"]) for s in items[1]["speakers"]] == [("SPEAKER_00", "female"),
+                                                                        ("SPEAKER_01", "male")]

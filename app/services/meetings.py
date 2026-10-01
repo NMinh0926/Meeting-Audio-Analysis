@@ -98,12 +98,13 @@ def create_meetings(session: Session, storage: Storage, uploads: list[Upload], m
 def list_meetings(
     session: Session, status: MeetingStatus | None = None, limit: int = 50, offset: int = 0
 ) -> tuple[list[Meeting], int]:
-    """Newest first, with the total count for pagination."""
+    """Newest first with their speakers, and the total count for pagination."""
     query = select(Meeting)
     if status is not None:
         query = query.where(Meeting.status == status)
     total = session.scalar(select(func.count()).select_from(query.subquery())) or 0
-    items = session.scalars(query.order_by(Meeting.seq.desc()).limit(limit).offset(offset)).all()
+    page = query.options(selectinload(Meeting.speakers)).order_by(Meeting.seq.desc()).limit(limit).offset(offset)
+    items = session.scalars(page).all()
     return list(items), total
 
 

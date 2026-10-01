@@ -58,7 +58,7 @@ def list_meetings(
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
 ):
-    """Meetings newest first."""
+    """Meetings newest first, each with its speakers (names and genders)."""
     items, total = service.list_meetings(db, status_filter, limit, offset)
     return MeetingList(items=items, total=total, limit=limit, offset=offset)
 
