@@ -187,3 +187,29 @@ chờ bạn đồng ý mới sửa.
   hai giọng giống nhau.
 - Cảm xúc chưa được đánh giá; tách người nói vẫn gộp giọng ngắn cùng giới.
 - `CLAUDE.md` còn dòng LLM/Ollama/PDF — chờ bạn đồng ý mới sửa.
+
+## Giai đoạn 6 — Giao diện và độ chính xác chép lời (2026-10-01) — xong
+
+### Đã làm
+- **Thanh trên cùng cố định** (nút quay lại, tên file, trình phát): đọc tới đâu cũng thoát ra được.
+- **Trình phát tự làm** thay cho `<audio controls>`: lùi/tới 5 s, phát/dừng, thanh tua, tốc độ 0.75–2×.
+  Phím tắt: ←/→ lùi/tới 5 s, ↑/↓ câu trước/câu sau, Space phát/dừng (tắt khi đang gõ tên).
+- Trang bản ghi: mỗi người nói một màu + ô tròn chữ cái đầu; cột bên có người nói (thời gian nói, %),
+  tải TXT/SRT/JSON, bảng phím tắt; nút "Về câu đang phát" khi tắt tự cuộn.
+- Trang danh sách làm lại: mỗi cuộc họp một dòng với số người nói + số nam/nữ; API danh sách trả kèm
+  người nói (`selectinload`, thêm một truy vấn cho cả trang).
+- Kiểm tra bằng Chromium headless: ±5 s, phím tắt, bấm câu, thanh trên cùng khi đã cuộn, quay lại danh sách.
+- **Chép lời** (`docs/benchmarks/2026-10-01-transcript-coverage.md`, script `scripts/bench_transcript.py`):
+  - Đo "mất chữ" không cần đáp án: giây có tiếng nói (theo pyannote) mà không có chữ. Turbo hiện tại:
+    ep8 1.2 %, ep4 5.4 %; đoạn mất ≥ 2 s là lời giới thiệu chen nhạc đầu chương trình và vài câu ngắn.
+  - Không đổi gì: ngưỡng im lặng 4 s và câu gợi ý cho kết quả như cũ; `large-v3` mất nhiều hơn
+    (2.3 % / 6.6 %), chậm gấp 3, WER chỉ 5.9 → 5.6 %. Model `large-v3` đã xoá khỏi cache sau khi đo.
+  - Câu đầu ep8 và "Chí"/"Trí", "khách mời"/"khách mở" lật qua lại khi audio chỉ khác chút ít:
+    model không chắc ở đó, không phải lỗi chuẩn hoá.
+  - `hotwords` (faster-whisper) với tên đầy đủ "Nguyễn Đăng Chí, khách mời" sửa đúng cả hai ở mọi lần chạy;
+    trên FLEURS không chèn từ khoá vào đâu, WER 5.9 → 6.1 %.
+- Test: backend 191, frontend 78 (tua/phím tắt, câu trước/sau, thời gian nói, chữ cái đầu, tóm tắt nam/nữ).
+
+### Việc còn dở / ý tưởng
+- Ô "từ khoá" (tên người, thuật ngữ) khi tải file lên để truyền `hotwords` — chờ bạn quyết.
+- Nhận diện cảm xúc (giai đoạn 7) — chờ duyệt kế hoạch.
