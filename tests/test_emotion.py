@@ -243,3 +243,8 @@ def test_speaker_emotion_with_zero_length_turns():
 @pytest.mark.parametrize(("emotion", "name"), [("happy", "Vui vẻ"), ("angry", "Tức giận"), ("unknown", "Bình thường")])
 def test_emotion_names_in_vietnamese(emotion, name):
     assert emotion_name(emotion) == name
+
+
+def test_voice_disgust_counts_as_neutral():
+    # emotion2vec+ hears "disgusted" in calm Vietnamese speech (docs/benchmarks/2026-10-01-emotion.md)
+    assert to_emotions({"厌恶/disgusted": 1.0}, VOICE_LABELS) == one_hot("neutral")

@@ -16,10 +16,11 @@ TEXT_LABELS: dict[str, str] = {
     "fear": "fearful",
 }
 
-# emotion2vec+ labels, which come as "中文/english"; only the English part is used.
+# emotion2vec+ labels, which come as "中文/english"; only the English part is used. Its "disgusted" fired
+# on 11/120 calmly read Vietnamese FLEURS clips (none were angry), so it counts as neutral, not anger.
 VOICE_LABELS: dict[str, str] = {
     "angry": "angry",
-    "disgusted": "angry",
+    "disgusted": "neutral",
     "fearful": "fearful",
     "happy": "happy",
     "neutral": "neutral",
