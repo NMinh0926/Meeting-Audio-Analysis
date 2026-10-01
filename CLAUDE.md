@@ -24,7 +24,7 @@ Kế hoạch từng giai đoạn: `docs/PLAN.md`. Tiến độ: `docs/PROGRESS.m
   nam khi p(nam) ≥ 0.2 (`docs/benchmarks/2026-10-01-speakers-gender.md`).
 - Cảm xúc (6 loại: bình thường, vui vẻ, buồn, tức giận, ngạc nhiên, lo lắng): giọng emotion2vec+ large
   (`funasr`, đoạn ≤ 10 s, nhãn "disgusted" tính là bình thường) 0.6 + chữ PhoBERT UIT-VSMEC (HalogenFlo, MIT,
-  từng câu) 0.4; cảm xúc chung của người nói = cảm xúc chiếm nhiều thời gian nói nhất
+  từng câu) 0.4, phải hơn "bình thường" ≥ 0.15; cảm xúc chung của người nói = cảm xúc chiếm nhiều thời gian nói nhất
   (`docs/benchmarks/2026-10-01-emotion.md`).
 - Model âm thanh (cả emotion2vec+) chạy trên GPU (RTX 3050 Ti, 4 GB) qua `DEVICE=cuda`; model cảm xúc chữ trên CPU;
   giải phóng cache GPU của PyTorch giữa các bước; worker xử lý 1 job một lúc.

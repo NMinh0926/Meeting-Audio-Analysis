@@ -50,13 +50,26 @@ def test_weighted_mean_of_nothing_is_none():
 
 
 def test_combine_leans_on_the_voice():
-    result = emotion.combine(one_hot("neutral"), one_hot("angry"), voice_weight=0.6)
+    result = emotion.combine(one_hot("neutral"), one_hot("angry"), voice_weight=0.6, min_margin=0.0)
     assert (result.sentiment, result.confidence) == ("neutral", 0.6)
 
 
 def test_combine_agreeing_sides():
-    result = emotion.combine(one_hot("happy", 0.8), one_hot("happy", 0.6), voice_weight=0.6)
+    result = emotion.combine(one_hot("happy", 0.8), one_hot("happy", 0.6), voice_weight=0.6, min_margin=0.0)
     assert (result.sentiment, result.confidence) == ("happy", pytest.approx(0.72))
+
+
+def test_combine_calls_a_near_tie_neutral():
+    # "3.000 đấy là một kỳ hay là một năm?": voice sad 0.93, text neutral 1.0 → sad 0.56 vs neutral 0.43
+    voice = {**one_hot("sad", 0.93), "neutral": 0.05}
+    result = emotion.combine(voice, one_hot("neutral"), voice_weight=0.6, min_margin=0.15)
+    assert result.sentiment == "neutral"
+    assert result.confidence == pytest.approx(0.6 * 0.05 + 0.4)
+
+
+def test_combine_keeps_a_clear_emotion():
+    result = emotion.combine(one_hot("happy"), one_hot("neutral"), voice_weight=0.6, min_margin=0.15)
+    assert (result.sentiment, result.confidence) == ("happy", 0.6)
 
 
 @pytest.mark.parametrize(("voice", "text", "expected"), [
@@ -65,7 +78,7 @@ def test_combine_agreeing_sides():
     (None, None, ("neutral", 0.0)),
 ])
 def test_combine_with_a_missing_side(voice, text, expected):
-    result = emotion.combine(voice, text, voice_weight=0.6)
+    result = emotion.combine(voice, text, voice_weight=0.6, min_margin=0.0)
     assert (result.sentiment, result.confidence) == expected
 
 

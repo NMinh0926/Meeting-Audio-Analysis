@@ -20,6 +20,7 @@ from scripts.eval_gender import load_manifest
 
 def main() -> int:
     settings = get_settings()
+    margin = settings.EMOTION_MIN_MARGIN
     clips = load_manifest()
     counts: dict[str, collections.Counter] = {side: collections.Counter() for side in ("voice", "text", "combined")}
     started = time.perf_counter()
@@ -27,12 +28,12 @@ def main() -> int:
         samples = decode_audio(str(clip.path), sampling_rate=16000)
         voice = voice_scores(samples, settings.EMOTION_CHUNK_SECONDS, settings.EMOTION_MIN_SECONDS)
         text = text_scores([(clip.text, len(samples) / 16000)])
-        counts["voice"][combine(voice, None, 1.0).sentiment] += 1
-        counts["text"][combine(None, text, 0.0).sentiment] += 1
-        counts["combined"][combine(voice, text, settings.EMOTION_VOICE_WEIGHT).sentiment] += 1
+        counts["voice"][combine(voice, None, 1.0, margin).sentiment] += 1
+        counts["text"][combine(None, text, 0.0, margin).sentiment] += 1
+        counts["combined"][combine(voice, text, settings.EMOTION_VOICE_WEIGHT, margin).sentiment] += 1
     elapsed = time.perf_counter() - started
 
-    print(f"{len(clips)} clips, {elapsed:.0f} s, voice weight {settings.EMOTION_VOICE_WEIGHT}\n")
+    print(f"{len(clips)} clips, {elapsed:.0f} s, voice weight {settings.EMOTION_VOICE_WEIGHT}, min margin {margin}\n")
     print(f"| Side | Neutral | False emotion | {' | '.join(EMOTIONS[1:])} |")
     print("|---|---|---|" + "---|" * (len(EMOTIONS) - 1))
     for side, counter in counts.items():

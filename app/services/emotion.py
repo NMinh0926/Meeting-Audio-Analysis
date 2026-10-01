@@ -55,8 +55,12 @@ def weighted_mean(parts: Sequence[tuple[Scores, float]]) -> Scores | None:
     return {e: sum(scores[e] * weight for scores, weight in parts) / total for e in EMOTIONS}
 
 
-def combine(voice: Scores | None, text: Scores | None, voice_weight: float) -> SentimentResult:
-    """Mix voice and text scores; the side that is missing leaves the other alone."""
+def combine(voice: Scores | None, text: Scores | None, voice_weight: float, min_margin: float) -> SentimentResult:
+    """Mix voice and text scores; the side that is missing leaves the other alone.
+
+    An emotion other than neutral must beat neutral by `min_margin`, otherwise the turn is neutral: a near tie
+    is usually one confident side against the other (e.g. a question the voice model hears as sad).
+    """
     if voice is None and text is None:
         return SentimentResult(sentiment="neutral", confidence=0.0)
     if voice is None or text is None:
@@ -64,6 +68,8 @@ def combine(voice: Scores | None, text: Scores | None, voice_weight: float) -> S
     else:
         scores = {e: voice_weight * voice[e] + (1 - voice_weight) * text[e] for e in EMOTIONS}
     emotion = max(EMOTIONS, key=scores.__getitem__)
+    if emotion != "neutral" and scores[emotion] - scores["neutral"] < min_margin:
+        emotion = "neutral"
     return SentimentResult(sentiment=emotion, confidence=round(scores[emotion], 4))
 
 
@@ -131,5 +137,5 @@ def predict_turn_emotions(normalized_audio_path: str | Path, turns: Sequence[Spe
             text = text_scores(_sentences(turn))
         except Exception as e:
             logger.warning(f"Text emotion failed at {turn.start:.1f}-{turn.end:.1f}s: {e}")
-        results.append(combine(voice, text, settings.EMOTION_VOICE_WEIGHT))
+        results.append(combine(voice, text, settings.EMOTION_VOICE_WEIGHT, settings.EMOTION_MIN_MARGIN))
     return results

@@ -66,6 +66,8 @@ class Settings(BaseSettings):
     EMOTION_VOICE_MODEL: str = "emotion2vec/emotion2vec_plus_large"
     # Share of the voice in the combined scores; the text model is often over-confident on plain statements.
     EMOTION_VOICE_WEIGHT: float = 0.6
+    # A non-neutral emotion must beat neutral by this much in the combined scores (near ties read as neutral).
+    EMOTION_MIN_MARGIN: float = 0.15
     # Voice model input: pieces of at most this length (its memory grows with the square of the length);
     # shorter pieces than EMOTION_MIN_SECONDS are skipped.
     EMOTION_CHUNK_SECONDS: float = 10.0
