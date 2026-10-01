@@ -36,7 +36,8 @@ và xuất được TXT, SRT, JSON. Model chạy ngay trên máy của bạn: gh
 ## Yêu cầu
 
 - Docker Desktop (Windows dùng WSL2) hoặc Docker Engine + Docker Compose.
-- GPU NVIDIA **≥ 4 GB** VRAM, driver mới và hỗ trợ GPU cho Docker (NVIDIA Container Toolkit).
+- GPU NVIDIA **≥ 4 GB** VRAM và driver mới (Windows: Docker Desktop + WSL2 tự dùng được GPU; Linux: cần thêm
+  NVIDIA Container Toolkit).
 - Khoảng **20 GB** ổ đĩa: image ~13.5 GB, model tải lần đầu ~4 GB.
 - Tài khoản Hugging Face và token đọc (*read*), đã bấm đồng ý điều khoản của:
   [`pyannote/speaker-diarization-3.1`](https://huggingface.co/pyannote/speaker-diarization-3.1),
@@ -45,20 +46,25 @@ và xuất được TXT, SRT, JSON. Model chạy ngay trên máy của bạn: gh
 
 ## Cài đặt và chạy
 
+> Lần đầu cài, hoặc chưa quen Docker: làm theo **[hướng dẫn cài đặt chi tiết](docs/INSTALL.md)** (cài driver, WSL2,
+> Docker Desktop, tài khoản Hugging Face, kiểm tra từng bước, xử lý sự cố). Phần dưới là bản tóm tắt.
+
 ```powershell
 git clone https://github.com/NMinh0926/Meeting-Audio-Analysis.git
 cd Meeting-Audio-Analysis
 copy .env.example .env      # Linux/macOS: cp .env.example .env
 ```
 
-Mở `.env`, điền `HF_TOKEN` và đổi các mật khẩu `change_me…`. **Không commit `.env`.**
+Mở `.env`, điền `HF_TOKEN` và đổi các mật khẩu `change_me…` **trước lần chạy đầu** (mật khẩu PostgreSQL chỉ được
+đặt một lần). **Không commit `.env`.**
 
 ```powershell
 docker compose up -d --build
 ```
 
 - Giao diện web: http://127.0.0.1:8081
-- API và tài liệu: http://127.0.0.1:8001/docs — kiểm tra: `curl http://127.0.0.1:8001/api/health`
+- API và tài liệu: http://127.0.0.1:8001/docs — kiểm tra: `curl.exe http://127.0.0.1:8001/api/health`
+  (Linux/macOS: `curl`)
 
 Lần chạy đầu worker tải model (~4 GB), nên job đầu tiên mất thêm vài phút (đo trên máy thử: ~3 phút cho
 file 1 phút); các job sau dùng lại model đã tải. Xem tiến độ: `docker compose logs -f --tail=100 worker`.
@@ -149,10 +155,12 @@ Các script đo (`scripts/bench_*.py`, `scripts/eval_gender.py`) cần dữ li�
 | Hiện tượng | Cách xử lý |
 |---|---|
 | Job báo lỗi ở bước *Tách người nói* (`DiarizationError`, 401/403) | `HF_TOKEN` sai hoặc chưa bấm đồng ý điều khoản cả 3 model pyannote ở mục Yêu cầu. Sửa `.env`, chạy `docker compose up -d --force-recreate api worker`, rồi bấm **Chạy lại** ở job lỗi. |
-| `could not select device driver "nvidia"` khi khởi động | Docker chưa thấy GPU: cài driver NVIDIA mới và NVIDIA Container Toolkit (Windows: Docker Desktop dùng WSL2). Kiểm tra: `docker run --rm --gpus all nvidia/cuda:12.6.3-base-ubuntu24.04 nvidia-smi`. |
+| `could not select device driver "nvidia"` khi khởi động | Docker chưa thấy GPU: cập nhật driver NVIDIA; Windows: bật WSL 2 engine trong Docker Desktop; Linux: cài NVIDIA Container Toolkit. Kiểm tra: `docker run --rm --gpus all nvidia/cuda:12.6.3-base-ubuntu24.04 nvidia-smi`. |
 | Cổng 8001 hoặc 8081 đã bị dùng | Đổi phần `ports` của `api` / `frontend` trong `compose.yaml`. |
 | Log worker có dòng `CUDACachingAllocator … OOM` ở bước tách người nói | Cảnh báo của PyTorch trên card 4 GB; job vẫn chạy tiếp và xong bình thường. Chỉ cần xử lý khi job thật sự báo lỗi. |
 | Job đầu tiên rất lâu | Đang tải model lần đầu (~4 GB); xem `docker compose logs -f worker`. |
+
+Thêm các trường hợp khác (mật khẩu DB, hết ổ đĩa, build đứt mạng): [docs/INSTALL.md](docs/INSTALL.md#xử-lý-sự-cố).
 
 ## Giới hạn đã biết
 
