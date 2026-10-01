@@ -213,3 +213,28 @@ chờ bạn đồng ý mới sửa.
 ### Việc còn dở / ý tưởng
 - Ô "từ khoá" (tên người, thuật ngữ) khi tải file lên để truyền `hotwords` — chờ bạn quyết.
 - Nhận diện cảm xúc (giai đoạn 7) — chờ duyệt kế hoạch.
+
+## Giai đoạn 7 — Nhận diện cảm xúc, phương án C: giọng + chữ (2026-10-01) — xong
+
+### Đã làm
+- 6 cảm xúc: bình thường, vui vẻ, buồn, tức giận, ngạc nhiên, lo lắng (`app/services/emotion_labels.py`).
+- **Chữ**: thay model cảm xúc đa ngôn ngữ cũ (33 % trên tập test UIT-VSMEC, gắn "tức giận" 468/693 câu) bằng
+  PhoBERT huấn luyện trên UIT-VSMEC (`HalogenFlo/phobert-vsmec-emotion-recognition`, MIT, 68 %), chạy từng câu
+  trên CPU.
+- **Giọng**: emotion2vec+ large qua `funasr` (dependency mới, 37 gói, không đổi gói cũ), trên GPU, cắt lượt nói
+  thành đoạn ≤ 10 s (lượt 4 phút làm hết bộ nhớ GPU). Nhãn "disgusted" của giọng tính là bình thường: trên giọng
+  đọc FLEURS nó gây 11/120 "tức giận" sai; tỉ lệ gắn nhầm cảm xúc 16.7 % → 8.3 %.
+- Kết hợp 0.6 giọng + 0.4 chữ; cảm xúc chung của người nói = cảm xúc chiếm nhiều thời gian nói nhất, kèm tỉ lệ.
+- API bản ghi trả `emotion`, `emotion_shares` cho mỗi người nói; TXT ghi cảm xúc từng lượt và từng người, JSON có
+  thêm cảm xúc người nói. Giao diện: nhãn cảm xúc mỗi lượt, "Nữ · Vui vẻ" ở cột người nói, thanh thời gian nói
+  tô màu theo cảm xúc.
+- `scripts/recompute_emotions.py` đã chạy lại cảm xúc cho 9 cuộc họp cũ. Script đo: `bench_emotion_text`,
+  `bench_emotion_neutral`.
+- Chi phí: bộ nhớ GPU giữa các job 1.30 → 1.98 GB (ổn định, 0/8 lỗi); 1 giờ audio ≈ 7 phút (trước 6.5).
+  Số liệu: `docs/benchmarks/2026-10-01-emotion.md`.
+- Test: backend 218, frontend 82.
+
+### Việc còn dở / ý tưởng
+- Trọng số 0.6/0.4 chưa được kiểm chứng: chưa có giọng nói tiếng Việt gắn nhãn cảm xúc. Muốn chính xác hơn:
+  gắn nhãn ~50 lượt nói thật rồi chỉnh trọng số theo đó.
+- Ô "từ khoá" (hotwords) khi tải file lên — vẫn chờ bạn quyết.
