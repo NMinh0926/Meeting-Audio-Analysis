@@ -41,17 +41,16 @@ def mock_all_services(monkeypatch):
             "SPK_1": GenderResult(gender="female", confidence=0.85)
         }
         
-    def mock_sentiment(text):
-        if "Xin chào" in text:
-            return SentimentResult(sentiment="happy", confidence=0.99)
-        return SentimentResult(sentiment="neutral", confidence=0.5)
+    def mock_emotions(path, turns):
+        return [SentimentResult(sentiment="happy", confidence=0.99) if "Xin chào" in t.text
+                else SentimentResult(sentiment="neutral", confidence=0.5) for t in turns]
 
     monkeypatch.setattr("app.services.pipeline.preprocess_audio", mock_preprocess)
     monkeypatch.setattr("app.services.pipeline.transcribe_audio", mock_transcribe)
     monkeypatch.setattr("app.services.pipeline.diarize_audio", mock_diarize)
     # Using real align and merge
     monkeypatch.setattr("app.services.pipeline.predict_speakers_gender", mock_gender)
-    monkeypatch.setattr("app.services.pipeline.predict_sentiment", mock_sentiment)
+    monkeypatch.setattr("app.services.pipeline.predict_turn_emotions", mock_emotions)
 
 def test_analyze_meeting_full(mock_all_services, tmp_path):
     dummy = tmp_path / "dummy.wav"
@@ -143,3 +142,19 @@ def test_gpu_cache_is_released_before_transcription_and_after_torch_stages(mock_
     assert events[:3] == ["preprocessing", "transcription", "release"]
     assert events[events.index("diarization") + 1] == "release"
     assert events[events.index("gender") + 1] == "release"
+    assert events[-1] == "release"  # after the voice emotion model
+
+
+def test_emotions_read_the_normalized_audio_before_it_is_removed(mock_all_services, monkeypatch, tmp_path):
+    normalized = _normalized_file(monkeypatch, tmp_path)
+    seen = []
+
+    def emotions(path, turns):
+        seen.append((path, Path(path).exists(), [t.text for t in turns]))
+        return [SentimentResult(sentiment="sad", confidence=0.7) for _ in turns]
+    monkeypatch.setattr("app.services.pipeline.predict_turn_emotions", emotions)
+
+    res = analyze_meeting(tmp_path / "dummy.wav")
+
+    assert seen == [(str(normalized), True, ["Xin chào.", "Chào bạn."])]
+    assert [(s.sentiment, s.sentiment_confidence) for s in res.segments] == [("sad", 0.7), ("sad", 0.7)]

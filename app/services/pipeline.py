@@ -11,7 +11,7 @@ from app.services.diarization import diarize_audio
 from app.services.alignment import align_segments
 from app.services.segment_merger import merge_consecutive_turns
 from app.services.gender import predict_speakers_gender
-from app.services.sentiment import predict_sentiment
+from app.services.emotion import predict_turn_emotions
 
 logger = logging.getLogger(__name__)
 
@@ -57,17 +57,19 @@ def analyze_meeting(audio_path: str | Path, on_stage: StageCallback | None = Non
         stage(6, "gender", "Gender Classification")
         gender_map = predict_speakers_gender(normalized_path, speakers)
         release_cached_memory()
-    finally:
-        # The normalized WAV is only an intermediate; later stages work on text.
-        Path(normalized_path).unlink(missing_ok=True)
 
-    # 7. Sentiment prediction per turn & assemble final
-    stage(7, "sentiment", "Sentiment Classification & Assembly")
+        # 7. Emotion per turn, from the voice and the words
+        stage(7, "sentiment", "Emotion Classification")
+        emotions = predict_turn_emotions(normalized_path, merged_turns)
+        release_cached_memory()
+    finally:
+        # The normalized WAV is only an intermediate; assembly works on the results.
+        Path(normalized_path).unlink(missing_ok=True)
 
     final_segments = []
     unique_speakers = set()
 
-    for turn in merged_turns:
+    for turn, emotion in zip(merged_turns, emotions):
         unique_speakers.add(turn.speaker)
 
         # Get cached gender for the speaker
@@ -79,15 +81,12 @@ def analyze_meeting(audio_path: str | Path, on_stage: StageCallback | None = Non
             gender = gender_result.gender
             g_conf = gender_result.confidence
 
-        # Predict sentiment for this turn
-        sentiment_result = predict_sentiment(turn.text)
-
         final_segments.append(FinalTurn(
             speaker=turn.speaker,
             gender=gender,
             gender_confidence=g_conf,
-            sentiment=sentiment_result.sentiment,
-            sentiment_confidence=sentiment_result.confidence,
+            sentiment=emotion.sentiment,
+            sentiment_confidence=emotion.confidence,
             start=turn.start,
             end=turn.end,
             text=turn.text,

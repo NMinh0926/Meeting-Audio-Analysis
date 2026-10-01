@@ -57,10 +57,19 @@ class Settings(BaseSettings):
     # Below this confidence (distance from the threshold, 0.5..1) the speaker is reported as "unknown"
     GENDER_MIN_CONFIDENCE: float = 0.55
 
-    # Sentiment
-    SENTIMENT_MODEL: str = "lxyuan/distilbert-base-multilingual-cased-sentiments-student"
+    # Emotion per turn (docs/benchmarks/2026-10-01-emotion.md)
+    # Words: PhoBERT fine-tuned on UIT-VSMEC (MIT), 68 % on its test split vs 33 % for the earlier model.
     # A small text model: fast enough on CPU, and it leaves the 4 GB GPU to the audio models.
-    SENTIMENT_DEVICE: str = "cpu"
+    EMOTION_TEXT_MODEL: str = "HalogenFlo/phobert-vsmec-emotion-recognition"
+    EMOTION_TEXT_DEVICE: str = "cpu"
+    # Voice: emotion2vec+ large (FunASR model licence: free use, keep the source and model name), on DEVICE.
+    EMOTION_VOICE_MODEL: str = "emotion2vec/emotion2vec_plus_large"
+    # Share of the voice in the combined scores; the text model is often over-confident on plain statements.
+    EMOTION_VOICE_WEIGHT: float = 0.6
+    # Voice model input: pieces of at most this length (its memory grows with the square of the length);
+    # shorter pieces than EMOTION_MIN_SECONDS are skipped.
+    EMOTION_CHUNK_SECONDS: float = 10.0
+    EMOTION_MIN_SECONDS: float = 0.5
 
     # Hugging Face
     HF_TOKEN: str = ""
