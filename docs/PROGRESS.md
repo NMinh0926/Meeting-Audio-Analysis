@@ -211,8 +211,8 @@ chờ bạn đồng ý mới sửa.
 - Test: backend 191, frontend 78 (tua/phím tắt, câu trước/sau, thời gian nói, chữ cái đầu, tóm tắt nam/nữ).
 
 ### Việc còn dở / ý tưởng
-- Ô "từ khoá" (tên người, thuật ngữ) khi tải file lên để truyền `hotwords` — chờ bạn quyết.
-- Nhận diện cảm xúc (giai đoạn 7) — chờ duyệt kế hoạch.
+- Ô "từ khoá" (`hotwords`) khi tải file lên: không làm (bạn quyết định 2026-10-01).
+- Nhận diện cảm xúc: đã làm ở giai đoạn 7.
 
 ## Giai đoạn 7 — Nhận diện cảm xúc, phương án C: giọng + chữ (2026-10-01) — xong
 
@@ -237,4 +237,3 @@ chờ bạn đồng ý mới sửa.
 ### Việc còn dở / ý tưởng
 - Trọng số 0.6/0.4 chưa được kiểm chứng: chưa có giọng nói tiếng Việt gắn nhãn cảm xúc. Muốn chính xác hơn:
   gắn nhãn ~50 lượt nói thật rồi chỉnh trọng số theo đó.
-- Ô "từ khoá" (hotwords) khi tải file lên — vẫn chờ bạn quyết.
