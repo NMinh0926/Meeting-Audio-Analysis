@@ -9,7 +9,9 @@ import pytest
 from app.core.config import get_settings
 from app.models.schemas import SpeakerTurn, TranscriptSegment
 from app.services import emotion
-from app.services.emotion_labels import EMOTIONS, TEXT_LABELS, VOICE_LABELS, to_emotions
+from app.services.emotion_labels import (
+    EMOTIONS, TEXT_LABELS, VOICE_LABELS, emotion_name, speaker_emotions, to_emotions,
+)
 
 
 def one_hot(name: str, value: float = 1.0) -> dict[str, float]:
@@ -219,3 +221,25 @@ def test_voice_model_loads_from_hugging_face_on_the_audio_device(monkeypatch):
 
     assert (calls["model"], calls["hub"], calls["device"]) == (get_settings().EMOTION_VOICE_MODEL, "hf", "cuda")
     assert calls["disable_update"] is True
+
+
+# --- per speaker
+
+def test_speaker_emotion_is_the_one_filling_most_talk_time():
+    result = speaker_emotions([(1, 10.0, "neutral"), (1, 25.0, "happy"), (2, 3.0, "angry"), (1, 5.0, "happy")])
+
+    assert result[1] == ("happy", {"happy": 0.75, "neutral": 0.25})
+    assert result[2] == ("angry", {"angry": 1.0})
+
+
+def test_speaker_emotion_ties_go_to_neutral_first():
+    assert speaker_emotions([(1, 2.0, "sad"), (1, 2.0, "neutral")])[1][0] == "neutral"
+
+
+def test_speaker_emotion_with_zero_length_turns():
+    assert speaker_emotions([(1, 0.0, "happy")]) == {1: ("happy", {"happy": 0.0})}
+
+
+@pytest.mark.parametrize(("emotion", "name"), [("happy", "Vui vẻ"), ("angry", "Tức giận"), ("unknown", "Bình thường")])
+def test_emotion_names_in_vietnamese(emotion, name):
+    assert emotion_name(emotion) == name

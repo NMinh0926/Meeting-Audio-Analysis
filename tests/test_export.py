@@ -9,13 +9,13 @@ from app.services.export import format_clock, format_srt_time
 
 EXPECTED_TXT = """Họp tuần 12.mp3
 Thời lượng: 01:02:05
-Người nói: Chị Lan (Nữ, 90%), SPEAKER_01 (Nam, 80%)
+Người nói: Chị Lan (Nữ, 90%, Vui vẻ), SPEAKER_01 (Nam, 80%, Vui vẻ)
 
-[00:00:00 - 00:00:04] Chị Lan (Nữ): Chào mọi người. Bắt đầu họp nhé.
+[00:00:00 - 00:00:04] Chị Lan (Nữ) [Bình thường]: Chào mọi người. Bắt đầu họp nhé.
 
-[00:00:05 - 00:00:07] SPEAKER_01 (Nam): Vâng, em báo cáo trước.
+[00:00:05 - 00:00:07] SPEAKER_01 (Nam) [Vui vẻ]: Vâng, em báo cáo trước.
 
-[01:01:40 - 01:02:05] Chị Lan (Nữ): Cảm ơn cả nhà.
+[01:01:40 - 01:02:05] Chị Lan (Nữ) [Vui vẻ]: Cảm ơn cả nhà.
 """
 
 EXPECTED_SRT = """1
@@ -115,8 +115,10 @@ def test_export_json_has_all_extracted_data(client, renamed):
     assert data["meeting_id"] == str(renamed.id)
     assert data["duration_seconds"] == 3725.5
     assert data["speakers"] == [
-        {"id": lan.id, "label": "SPEAKER_00", "name": "Chị Lan", "gender": "female", "gender_confidence": 0.9},
-        {"id": minh.id, "label": "SPEAKER_01", "name": "SPEAKER_01", "gender": "male", "gender_confidence": 0.8},
+        {"id": lan.id, "label": "SPEAKER_00", "name": "Chị Lan", "gender": "female", "gender_confidence": 0.9,
+         "emotion": "happy", "emotion_shares": {"happy": 0.8586, "neutral": 0.1414}},
+        {"id": minh.id, "label": "SPEAKER_01", "name": "SPEAKER_01", "gender": "male", "gender_confidence": 0.8,
+         "emotion": "happy", "emotion_shares": {"happy": 1.0}},
     ]
     assert data["turns"][1] == {
         "speaker_id": minh.id, "speaker": "SPEAKER_01", "gender": "male", "start": 5.0, "end": 7.25,
@@ -134,6 +136,6 @@ def test_unknown_gender_is_labelled_without_confidence(client, done_meeting, db_
     txt = client.get(f"/api/v1/meetings/{done_meeting.id}/export", params={"format": "txt"}).text
     srt = client.get(f"/api/v1/meetings/{done_meeting.id}/export", params={"format": "srt"}).text
 
-    assert "Người nói: SPEAKER_00 (Nữ, 90%), SPEAKER_01 (Không rõ)\n" in txt
-    assert "] SPEAKER_01 (Không rõ): Vâng, em báo cáo trước." in txt
+    assert "Người nói: SPEAKER_00 (Nữ, 90%, Vui vẻ), SPEAKER_01 (Không rõ, Vui vẻ)\n" in txt
+    assert "] SPEAKER_01 (Không rõ) [Vui vẻ]: Vâng, em báo cáo trước." in txt
     assert "SPEAKER_01 (Không rõ): Vâng, em báo cáo trước." in srt

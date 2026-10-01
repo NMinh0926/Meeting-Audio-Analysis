@@ -14,8 +14,11 @@ from app.api.byte_range import RangeNotSatisfiableError, parse_range
 from app.core.config import get_settings
 from app.db.models import MeetingStatus
 from app.db.session import get_db
-from app.models.schemas import MeetingDetail, MeetingList, MeetingOut, SpeakerOut, SpeakerRename, TranscriptOut
+from app.models.schemas import (
+    MeetingDetail, MeetingList, MeetingOut, SpeakerOut, SpeakerRename, TranscriptOut, TranscriptSpeakerOut,
+)
 from app.services import meetings as service
+from app.services.emotion_labels import speaker_emotions
 from app.services.export import ExportFormat, export_transcript
 from app.storage.base import Storage
 from app.storage.s3 import ObjectNotFoundError, S3Storage, StorageError
@@ -73,8 +76,14 @@ def get_meeting(db: DbSession, meeting_id: uuid.UUID):
 def get_transcript(db: DbSession, meeting_id: uuid.UUID):
     """Speakers and turns in time order, each turn with its utterances (for seeking and highlighting)."""
     meeting = service.get_transcript(db, meeting_id)
+    emotions = speaker_emotions((t.speaker_id, t.end - t.start, t.sentiment) for t in meeting.segments)
+    speakers = []
+    for speaker in meeting.speakers:
+        emotion, shares = emotions.get(speaker.id, ("neutral", {}))
+        speakers.append(TranscriptSpeakerOut(**SpeakerOut.model_validate(speaker).model_dump(),
+                                             emotion=emotion, emotion_shares=shares))
     return TranscriptOut(meeting_id=meeting.id, filename=meeting.filename, duration_seconds=meeting.duration_seconds,
-                         speakers=meeting.speakers, turns=meeting.segments)
+                         speakers=speakers, turns=meeting.segments)
 
 
 @router.get("/{meeting_id}/audio", response_class=StreamingResponse,

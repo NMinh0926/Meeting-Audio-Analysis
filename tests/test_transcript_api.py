@@ -82,3 +82,13 @@ def test_list_includes_speakers_with_genders(client, done_meeting):
     assert items[0]["speakers"] == []
     assert [(s["label"], s["gender"]) for s in items[1]["speakers"]] == [("SPEAKER_00", "female"),
                                                                         ("SPEAKER_01", "male")]
+
+
+def test_transcript_speakers_carry_their_overall_emotion(client, done_meeting):
+    speakers = client.get(f"/api/v1/meetings/{done_meeting.id}/transcript").json()["speakers"]
+
+    # Lan: 4.2 s neutral, 25.5 s happy; Minh: one happy turn
+    assert [(s["emotion"], s["emotion_shares"]) for s in speakers] == [
+        ("happy", {"happy": 0.8586, "neutral": 0.1414}),
+        ("happy", {"happy": 1.0}),
+    ]

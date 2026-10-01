@@ -148,14 +148,21 @@ class TurnOut(BaseModel):
     start: float
     end: float
     text: str
+    # Emotion of the turn, one of app.services.emotion_labels.EMOTIONS (field name kept from the first version)
     sentiment: str
     sentiment_confidence: float
     utterances: list[UtteranceOut]
+
+
+class TranscriptSpeakerOut(SpeakerOut):
+    # Emotion filling most of the speaker's talk time, and each emotion's share of it (largest first)
+    emotion: str
+    emotion_shares: dict[str, float]
 
 
 class TranscriptOut(BaseModel):
     meeting_id: uuid.UUID
     filename: str
     duration_seconds: float | None
-    speakers: list[SpeakerOut]
+    speakers: list[TranscriptSpeakerOut]
     turns: list[TurnOut]
