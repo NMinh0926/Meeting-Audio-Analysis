@@ -60,8 +60,8 @@ docker compose up -d --build
 - Giao diện web: http://127.0.0.1:8081
 - API và tài liệu: http://127.0.0.1:8001/docs — kiểm tra: `curl http://127.0.0.1:8001/api/health`
 
-Lần chạy đầu worker tải model (~4 GB) nên job đầu tiên chậm hơn. Xem tiến độ:
-`docker compose logs -f --tail=100 worker`.
+Lần chạy đầu worker tải model (~4 GB), nên job đầu tiên mất thêm vài phút (đo trên máy thử: ~3 phút cho
+file 1 phút); các job sau dùng lại model đã tải. Xem tiến độ: `docker compose logs -f --tail=100 worker`.
 
 Dừng: `docker compose down` (dữ liệu và model vẫn giữ trong volume Docker).
 
@@ -143,6 +143,16 @@ docker run --rm -v "${PWD}/frontend:/app" -w /app node:22-alpine sh -c "npm ci &
 
 Các script đo (`scripts/bench_*.py`, `scripts/eval_gender.py`) cần dữ liệu tải riêng vào `sample_data/real/`
 (không có trong repo); cách dùng ghi ở đầu mỗi script.
+
+## Xử lý sự cố
+
+| Hiện tượng | Cách xử lý |
+|---|---|
+| Job báo lỗi ở bước *Tách người nói* (`DiarizationError`, 401/403) | `HF_TOKEN` sai hoặc chưa bấm đồng ý điều khoản cả 3 model pyannote ở mục Yêu cầu. Sửa `.env`, chạy `docker compose up -d --force-recreate api worker`, rồi bấm **Chạy lại** ở job lỗi. |
+| `could not select device driver "nvidia"` khi khởi động | Docker chưa thấy GPU: cài driver NVIDIA mới và NVIDIA Container Toolkit (Windows: Docker Desktop dùng WSL2). Kiểm tra: `docker run --rm --gpus all nvidia/cuda:12.6.3-base-ubuntu24.04 nvidia-smi`. |
+| Cổng 8001 hoặc 8081 đã bị dùng | Đổi phần `ports` của `api` / `frontend` trong `compose.yaml`. |
+| Log worker có dòng `CUDACachingAllocator … OOM` ở bước tách người nói | Cảnh báo của PyTorch trên card 4 GB; job vẫn chạy tiếp và xong bình thường. Chỉ cần xử lý khi job thật sự báo lỗi. |
+| Job đầu tiên rất lâu | Đang tải model lần đầu (~4 GB); xem `docker compose logs -f worker`. |
 
 ## Giới hạn đã biết
 
